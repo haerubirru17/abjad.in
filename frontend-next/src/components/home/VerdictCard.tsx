@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   ShieldCheck, ShieldAlert, AlertTriangle, RefreshCw,
-  BookOpen, ChevronDown, ChevronUp, Share2, RotateCcw, Info
+  BookOpen, ChevronDown, ChevronUp, Share2, RotateCcw, Info,
+  CheckCircle2, XCircle, SkipForward, AlertCircle, Wifi, Database
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -129,6 +130,92 @@ function EduPill({ flagKey, label, isBad = true }: EduPillProps) {
                 <p className="text-xs text-primary/80 font-medium leading-relaxed">{edu.tip}</p>
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ============================================================
+// Pipeline Trace
+// ============================================================
+interface PipelineStep {
+  step: string;
+  status: 'ok' | 'hit' | 'miss' | 'failed' | 'skipped';
+  detail?: string | null;
+}
+
+function PipelineTrace({ steps }: { steps: PipelineStep[] }) {
+  const [open, setOpen] = useState(false);
+
+  const failedCount = steps.filter(s => s.status === 'failed').length;
+
+  const cfg = {
+    ok:      { icon: CheckCircle2,  color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200',  badge: 'bg-emerald-100 text-emerald-700',  label: 'Berhasil' },
+    hit:     { icon: Database,      color: 'text-blue-600',    bg: 'bg-blue-50 border-blue-200',        badge: 'bg-blue-100 text-blue-700',        label: 'Ditemukan' },
+    miss:    { icon: Wifi,          color: 'text-slate-400',   bg: 'bg-slate-50 border-slate-200',     badge: 'bg-slate-100 text-slate-500',      label: 'Tidak Ada' },
+    failed:  { icon: XCircle,       color: 'text-red-600',     bg: 'bg-red-50 border-red-200',         badge: 'bg-red-100 text-red-700',          label: 'Gagal' },
+    skipped: { icon: SkipForward,   color: 'text-slate-400',   bg: 'bg-slate-50 border-slate-200',     badge: 'bg-slate-100 text-slate-500',      label: 'Dilewati' },
+  };
+
+  return (
+    <div className="rounded-xl border border-border/50 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors text-sm font-semibold"
+      >
+        <div className="flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-muted-foreground" />
+          <span>Laporan Pemindaian ({steps.length} tahap)</span>
+          {failedCount > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-bold">
+              {failedCount} gagal
+            </span>
+          )}
+        </div>
+        {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="overflow-hidden"
+          >
+            <div className="divide-y divide-border/30">
+              {steps.map((s, i) => {
+                const c = cfg[s.status] || cfg.ok;
+                const Icon = c.icon;
+                return (
+                  <div key={i} className={`flex items-start gap-3 px-4 py-3 border-l-2 ${c.bg}`}>
+                    <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${c.color}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-foreground">{s.step}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${c.badge}`}>
+                          {c.label}
+                        </span>
+                      </div>
+                      {s.detail && (
+                        <p className="text-xs text-muted-foreground mt-0.5 break-words">{s.detail}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {failedCount > 0 && (
+              <div className="px-4 py-3 bg-red-50 border-t border-red-200">
+                <p className="text-xs text-red-700 font-medium">
+                  ⚠️ {failedCount} tahap gagal. Kemungkinan API key tidak valid, kuota habis, atau timeout. Cek Cloud Run logs untuk detail.
+                </p>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -528,6 +615,18 @@ export default function VerdictCard({
                   </div>
                 </div>
               </div>
+            );
+          })()}
+
+          {/* ---- Section: Pipeline Trace ---- */}
+          {(() => {
+            const raw = result.rawData as Record<string, unknown>;
+            const steps = raw?.pipeline as PipelineStep[] | undefined;
+            if (!steps || steps.length === 0) return null;
+            return (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
+                <PipelineTrace steps={steps} />
+              </motion.div>
             );
           })()}
 

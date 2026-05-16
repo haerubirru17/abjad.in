@@ -110,6 +110,9 @@ function buildFastVerdict(scanId, targetUrl, score, category, reason, source) {
 // POST /api/analyze
 router.post('/', async (req, res) => {
   const startTime = Date.now();
+  // Pipeline tracking — ditampilkan di frontend sebagai laporan pemindaian
+  const pipeline = [];
+  const tp = (step, status, detail) => pipeline.push({ step, status, detail: detail || null });
 
   // Timeout 25 detik (dipercepat dari 45)
   const timeout = setTimeout(() => {
@@ -167,6 +170,7 @@ router.post('/', async (req, res) => {
         });
       }
     } catch (e) { /* cache miss, lanjut */ }
+    tp('Cache', 'miss', null);
 
     // ===== STEP 3: Pre-processing URL =====
     let targetUrl = url || null;
@@ -318,8 +322,11 @@ router.post('/', async (req, res) => {
       // Resolve URL dulu (blocking, karena finalUrl diperlukan untuk intel + domain)
       try {
         resolverResult = await urlResolver.resolveUrl(targetUrl);
+        tp('URL Resolver', resolverResult.chain?.length > 0 ? 'hit' : 'ok',
+          resolverResult.chain?.length > 0 ? `${resolverResult.chain.length} redirect ditemukan` : 'Tidak ada redirect');
       } catch (e) {
         resolverResult.flags.push(`RESOLVE_ERROR: ${e.message}`);
+        tp('URL Resolver', 'failed', e.message);
       }
 
       const finalUrlResolved = resolverResult.finalUrl || targetUrl;
@@ -330,10 +337,21 @@ router.post('/', async (req, res) => {
         threatIntel.checkThreatIntel(finalUrlResolved, resolverResult.chain)
       ]);
 
-      if (domainRes.status === 'fulfilled') domainResult = domainRes.value;
-      else domainResult.flags.push(`DOMAIN_ERROR: ${domainRes.reason?.message}`);
+      if (domainRes.status === 'fulfilled') {
+        domainResult = domainRes.value;
+        tp('Analisis Domain', 'ok', domainResult.isWhitelisted ? 'Domain whitelisted' : `Skor domain: ${domainResult.totalScore}`);
+      } else {
+        domainResult.flags.push(`DOMAIN_ERROR: ${domainRes.reason?.message}`);
+        tp('Analisis Domain', 'failed', domainRes.reason?.message);
+      }
 
-      if (intelRes.status === 'fulfilled') intelResult = intelRes.value;
+      if (intelRes.status === 'fulfilled') {
+        intelResult = intelRes.value;
+        tp('Threat Intelligence', intelResult.hasOverride ? 'hit' : 'ok',
+          intelResult.hasOverride ? `Ancaman terdeteksi: ${intelResult.overrideCategory}` : 'Tidak ada ancaman di database global');
+      } else {
+        tp('Threat Intelligence', 'failed', 'Gagal menghubungi database ancaman');
+      }
     }
 
     const finalUrl = resolverResult.finalUrl || targetUrl;
@@ -388,6 +406,10 @@ router.post('/', async (req, res) => {
     // Unpack unified Gemini result
     const unifiedGemini = unifiedGeminiResult.status === 'fulfilled' ? unifiedGeminiResult.value : null;
     const mlLexical = mlLexicalResult.status === 'fulfilled' ? mlLexicalResult.value : earlyMlResult;
+    tp('Gemini AI', unifiedGemini ? 'ok' : 'failed',
+      unifiedGemini ? `Model: ${unifiedGemini?.url?._model || unifiedGemini?._model || 'gemini'}` : 'API tidak tersedia atau kuota habis');
+    tp('ML Leksikal (ONNX)', mlLexical ? (mlLexical.isPhishing ? 'hit' : 'ok') : 'skipped',
+      mlLexical ? `Phishing: ${mlLexical.isPhishing}, confidence: ${(mlLexical.confidence * 100).toFixed(0)}%` : 'Model tidak berjalan');
 
     // ===== STEP 9: Content analysis (opsional, hanya jika skor tinggi) =====
     let geminiContent = null;
@@ -399,8 +421,15 @@ router.post('/', async (req, res) => {
         const contentResult = await analyzePageContent(finalUrl);
         if (!contentResult.error) {
           geminiContent = contentResult;
+          tp('Analisis Konten Halaman', 'ok', `Skor risiko konten: ${contentResult.riskScore || 0}`);
+        } else {
+          tp('Analisis Konten Halaman', 'failed', contentResult.error);
         }
-      } catch (e) { /* content analysis gagal, lanjut */ }
+      } catch (e) {
+        tp('Analisis Konten Halaman', 'failed', e.message);
+      }
+    } else {
+      tp('Analisis Konten Halaman', 'skipped', prelimScore <= 60 ? `Skor awal rendah (${Math.round(prelimScore)}) — tidak perlu analisis konten` : 'Tidak ada URL untuk dianalisis');
     }
 
     // ===== STEP 10: Verdict =====
@@ -455,7 +484,8 @@ router.post('/', async (req, res) => {
         analyzedAt: verdict.analyzedAt,
         expiredAt: verdict.expiredAt,
         fromCache: false,
-        duration: `${duration}ms`
+        duration: `${duration}ms`,
+        pipeline
       });
     }
 
