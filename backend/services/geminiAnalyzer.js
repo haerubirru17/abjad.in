@@ -486,8 +486,8 @@ function getModelStatus() {
   const now = Date.now();
   return MODEL_ROTATION.map(model => ({
     model,
-    available: now > (modelCooldowns[model] || 0),
-    cooldownRemaining: Math.max(0, (modelCooldowns[model] || 0) - now)
+    available: now > (resourceCooldowns[model] || 0),
+    cooldownRemaining: Math.max(0, (resourceCooldowns[model] || 0) - now)
   }));
 }
 
@@ -502,6 +502,6 @@ module.exports = {
   getModelStatus,
   // Exposed for testing
   MODEL_ROTATION,
-  getAvailableModel,
+  getAvailableResource,
   callGemini
 };
