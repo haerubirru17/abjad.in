@@ -1,0 +1,29 @@
+{
+  "standard": [
+    "bit.ly",
+    "tinyurl.com",
+    "t.co",
+    "ow.ly",
+    "buff.ly",
+    "cutt.ly",
+    "rb.gy",
+    "is.gd",
+    "shorturl.at",
+    "rebrand.ly",
+    "tiny.cc",
+    "bl.ink",
+    "s.id",
+    "goo.su",
+    "kl.ink",
+    "v.gd",
+    "clck.ru",
+    "snip.ly"
+  ],
+  "whitelisted": [
+    "shp.ee",
+    "tokopedia.link",
+    "bukalapak.com",
+    "linktr.ee",
+    "forms.gle"
+  ]
+}

@@ -1,0 +1,26 @@
+# Build dari root project agar bisa mengakses backend/ + datasets/
+FROM node:20-slim
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy package files dulu (Docker cache layer)
+COPY backend/package*.json ./
+
+# Install production dependencies
+RUN npm ci --only=production
+
+# Copy seluruh kode backend
+COPY backend/ .
+
+# Copy datasets ke /datasets (localBlacklist.js mencarinya di ../../datasets dari services/)
+COPY datasets/ /datasets/
+
+EXPOSE 8080
+
+CMD ["node", "server.js"]

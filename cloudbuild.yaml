@@ -1,0 +1,127 @@
+################################################################################
+# cloudbuild.yaml — Abjad.in CI/CD Pipeline
+# Trigger: push ke branch main di GitHub
+# Flow: Build Image → Push ke Artifact Registry → Deploy ke Cloud Run
+################################################################################
+
+substitutions:
+  _REGION: asia-southeast2
+  _PROJECT: rapid-domain-495803-i8
+  _BACKEND_SERVICE: abjadin-backend
+  _FRONTEND_SERVICE: abjadin-frontend
+  _REPO: abjadin-repo  # Artifact Registry repository name
+
+steps:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # STEP 1: Build Docker image untuk BACKEND
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: "gcr.io/cloud-builders/docker"
+    id: "build-backend"
+    args:
+      - build
+      - -f
+      - Dockerfile.backend
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/${_BACKEND_SERVICE}:$SHORT_SHA"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/${_BACKEND_SERVICE}:latest"
+      - .
+    waitFor: ["-"]  # Mulai langsung (paralel dengan step lain yang juga waitFor: ["-"])
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # STEP 2: Build Docker image untuk FRONTEND
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: "gcr.io/cloud-builders/docker"
+    id: "build-frontend"
+    args:
+      - build
+      - -f
+      - Dockerfile.frontend
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/${_FRONTEND_SERVICE}:$SHORT_SHA"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/${_FRONTEND_SERVICE}:latest"
+      - .
+    waitFor: ["-"]  # Paralel dengan build-backend
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # STEP 3: Push image BACKEND ke Artifact Registry
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: "gcr.io/cloud-builders/docker"
+    id: "push-backend"
+    args:
+      - push
+      - "--all-tags"
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/${_BACKEND_SERVICE}"
+    waitFor: ["build-backend"]
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # STEP 4: Push image FRONTEND ke Artifact Registry
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: "gcr.io/cloud-builders/docker"
+    id: "push-frontend"
+    args:
+      - push
+      - "--all-tags"
+      - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/${_FRONTEND_SERVICE}"
+    waitFor: ["build-frontend"]
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # STEP 5: Deploy BACKEND ke Cloud Run
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "deploy-backend"
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - "${_BACKEND_SERVICE}"
+      - --image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/${_BACKEND_SERVICE}:$SHORT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+      - --port=8080
+      - --memory=512Mi
+      - --cpu=1
+      - --min-instances=0
+      - --max-instances=3
+      - --set-env-vars=NODE_ENV=production,PLAYWRIGHT_ENABLED=false,WEB_RISK_LOOKUP_ONLY=true
+      # Secrets diset terpisah via: gcloud run services update --update-secrets
+      # Lihat README bagian "Setup Secrets" setelah deploy pertama
+    waitFor: ["push-backend"]
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # STEP 6: Deploy FRONTEND ke Cloud Run
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "deploy-frontend"
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - "${_FRONTEND_SERVICE}"
+      - --image=${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/${_FRONTEND_SERVICE}:$SHORT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+      - --port=8080
+      - --memory=512Mi
+      - --cpu=1
+      - --min-instances=0
+      - --max-instances=3
+      # BACKEND_URL diset setelah backend selesai deploy dan URL-nya diketahui
+      # Jalankan manual sekali: gcloud run services update abjadin-frontend --update-env-vars NEXT_PUBLIC_BACKEND_URL=https://...
+    waitFor: ["push-frontend"]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Konfigurasi Build
+# ─────────────────────────────────────────────────────────────────────────────
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_MEDIUM  # Lebih cepat dari default
+
+timeout: "1200s"  # 20 menit (cukup untuk build Next.js + Node.js)
+
+images:
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/${_BACKEND_SERVICE}:$SHORT_SHA"
+  - "${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/${_FRONTEND_SERVICE}:$SHORT_SHA"

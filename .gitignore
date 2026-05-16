@@ -1,0 +1,41 @@
+# ── Dependencies ──────────────────────────────────────────────────
+node_modules/
+**/node_modules/
+.npm/
+
+# ── Build output ──────────────────────────────────────────────────
+.next/
+dist/
+.nyc_output/
+coverage/
+playwright-report/
+test-results/
+
+# ── Environment (RAHASIA - jangan pernah commit!) ─────────────────
+.env
+.env.local
+.env.production
+backend/.env
+
+# ── Log & debug files ─────────────────────────────────────────────
+*.log
+npm-debug.log*
+backend_err.txt
+backend_log.txt
+
+# ── File besar yang tidak perlu di GitHub ─────────────────────────
+deploy.zip
+*.zip
+
+# ── Dataset ML training (terlalu besar untuk GitHub) ─────────────
+# Datasets runtime kecil (TrustPositif, anti-gambling) BOLEH di-commit
+datasets/PhiUSIIL_Phishing_URL_Dataset.csv
+datasets/Phishing URLs.csv
+datasets/phishing-dataset-variation.csv
+datasets/phishing_hunter/
+
+# ── OS & Editor ───────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+*.swp
