@@ -1,18 +1,27 @@
 # Build dari root project agar bisa mengakses backend/ + datasets/
 FROM node:20-slim
 
+# libgomp1  → wajib untuk onnxruntime-node (prebuilt binary)
+# libstdc++6 → wajib untuk native modules
+# ca-certificates → wajib untuk HTTPS calls
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    python3 \
+    libgomp1 \
+    libstdc++6 \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
+# Skip download browser Playwright (tidak dipakai di production)
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_ENABLED=false
+ENV NODE_ENV=production
+ENV PORT=8080
+
 # Copy package files dulu (Docker cache layer)
 COPY backend/package*.json ./
 
-# Install production dependencies
+# Install production dependencies (tanpa download browser Playwright)
 RUN npm ci --only=production
 
 # Copy seluruh kode backend
