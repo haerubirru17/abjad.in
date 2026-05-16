@@ -32,6 +32,9 @@ const logger = winston.createLogger({
   ]
 });
 
+// Cloud Run menggunakan reverse proxy — wajib agar express-rate-limit & IP detection bekerja
+app.set('trust proxy', true);
+
 // Middleware Stack
 app.use(helmet());
 app.use(compression());
