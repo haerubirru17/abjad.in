@@ -8,8 +8,10 @@ RUN npm ci
 
 COPY frontend-next/ .
 
-# BACKEND_URL diset sebagai runtime env var di Cloud Run (bukan build-time)
-# Frontend memakai Next.js rewrites untuk proxy /api/* ke backend
+# BACKEND_URL harus tersedia saat build karena Next.js rewrites() dievaluasi saat build
+ARG BACKEND_URL=https://abjadin-backend-79780817932.asia-southeast2.run.app
+ENV BACKEND_URL=${BACKEND_URL}
+
 RUN npm run build
 
 # ── Stage 2: Run ────────────────────────────────────────────────
