@@ -75,6 +75,8 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
   const recognitionRef = useRef<unknown>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const vadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const accumulatedTextRef = useRef<string>('');
 
   // ── Auto scroll ke bawah saat pesan baru ──────────────────
   useEffect(() => {
@@ -179,8 +181,8 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
     setIsSpeaking(false);
   };
 
-  // ── Speech Recognition (Mic Input) ───────────────────────
-  const startListening = useCallback(() => {
+  // ── Speech Recognition ────────────────────────────────────
+  const createRecognition = useCallback((continuous: boolean) => {
     const SpeechRecognition = (window as unknown as Record<string, unknown>).SpeechRecognition
       || (window as unknown as Record<string, unknown>).webkitSpeechRecognition;
 
@@ -189,10 +191,88 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
         role: 'assistant',
         text: 'Maaf, browser kamu belum mendukung fitur suara. Coba gunakan Google Chrome ya.',
       }]);
-      return;
+      return null;
     }
+    return new (SpeechRecognition as new () => any)();
+  }, []);
 
-    const recognition = new (SpeechRecognition as new () => any)();
+  /**
+   * Mode VOICE — continuous + VAD debounce
+   * Kirim pesan otomatis setelah 1.5 detik diam
+   */
+  const startVoiceListening = useCallback(() => {
+    const recognition = createRecognition(true);
+    if (!recognition) return;
+
+    recognition.lang = 'id-ID';
+    recognition.continuous = true;      // terus mendengarkan
+    recognition.interimResults = true;
+
+    accumulatedTextRef.current = '';
+
+    recognition.onstart = () => setIsListening(true);
+
+    recognition.onresult = (event: any) => {
+      // Ambil semua teks final baru sejak result terakhir
+      let newFinal = '';
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          newFinal += t;
+        } else {
+          interim += t;
+        }
+      }
+
+      if (newFinal) {
+        accumulatedTextRef.current += (accumulatedTextRef.current ? ' ' : '') + newFinal.trim();
+      }
+
+      // Tampilkan live transcript
+      setLiveTranscript(accumulatedTextRef.current + (interim ? ' ' + interim : ''));
+
+      // Reset VAD timer — kirim setelah 1.5 detik diam
+      if (vadTimerRef.current) clearTimeout(vadTimerRef.current);
+      if (accumulatedTextRef.current) {
+        vadTimerRef.current = setTimeout(() => {
+          const toSend = accumulatedTextRef.current.trim();
+          if (toSend) {
+            accumulatedTextRef.current = '';
+            setLiveTranscript('');
+            sendMessage(toSend);
+          }
+        }, 1500);
+      }
+    };
+
+    recognition.onerror = (e: any) => {
+      // 'no-speech' bukan error fatal — cukup tunggu
+      if (e.error === 'no-speech') return;
+      setIsListening(false);
+      setLiveTranscript('');
+    };
+
+    recognition.onend = () => {
+      // Di voice mode continuous, restart otomatis kecuali sedang loading/speaking
+      if (voiceMode && !isLoading && !isSpeaking) {
+        try { recognition.start(); } catch { /* sudah running */ }
+      } else {
+        setIsListening(false);
+      }
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  }, [createRecognition, voiceMode, isLoading, isSpeaking, sendMessage]);
+
+  /**
+   * Mode TEXT — single utterance (klik mic di input box)
+   */
+  const startListening = useCallback(() => {
+    const recognition = createRecognition(false);
+    if (!recognition) return;
+
     recognition.lang = 'id-ID';
     recognition.continuous = false;
     recognition.interimResults = true;
@@ -203,53 +283,44 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
       let interim = '';
       let final = '';
       for (let i = 0; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          final += transcript;
-        } else {
-          interim += transcript;
-        }
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) final += t;
+        else interim += t;
       }
       setLiveTranscript(interim || final);
       if (final) {
-        sendMessage(final);
+        setInputText(final.trim()); // isi ke text input, tidak langsung kirim
         setLiveTranscript('');
       }
     };
 
-    recognition.onerror = () => {
-      setIsListening(false);
-      setLiveTranscript('');
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
+    recognition.onerror = () => { setIsListening(false); setLiveTranscript(''); };
+    recognition.onend = () => setIsListening(false);
 
     recognitionRef.current = recognition;
     recognition.start();
-  }, [sendMessage]);
+  }, [createRecognition]);
 
-  const stopListening = () => {
+  const stopListening = useCallback(() => {
+    if (vadTimerRef.current) { clearTimeout(vadTimerRef.current); vadTimerRef.current = null; }
+    accumulatedTextRef.current = '';
     if (recognitionRef.current) {
       (recognitionRef.current as any).abort();
       recognitionRef.current = null;
     }
     setIsListening(false);
     setLiveTranscript('');
-  };
+  }, []);
 
   // ── Toggle Voice Mode ─────────────────────────────────────
   const toggleVoiceMode = () => {
     if (voiceMode) {
-      // Exit voice mode → show chat history
       stopListening();
       stopAudio();
       setVoiceMode(false);
     } else {
-      // Enter voice mode
       setVoiceMode(true);
-      startListening();
+      setTimeout(() => startVoiceListening(), 300); // beri waktu state update
     }
   };
 
