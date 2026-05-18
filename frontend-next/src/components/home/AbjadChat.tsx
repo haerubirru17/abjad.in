@@ -77,6 +77,16 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const vadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const accumulatedTextRef = useRef<string>('');
+  // Refs untuk menghindari stale closure di speech recognition callbacks
+  const voiceModeRef = useRef(false);
+  const isLoadingRef = useRef(false);
+  const ttsEnabledRef = useRef(true);
+  const startVoiceListeningRef = useRef<() => void>(() => {});
+
+  // ── Sync refs dengan state ─────────────────────────────────
+  useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
+  useEffect(() => { isLoadingRef.current = isLoading; }, [isLoading]);
+  useEffect(() => { ttsEnabledRef.current = ttsEnabled; }, [ttsEnabled]);
 
   // ── Auto scroll ke bawah saat pesan baru ──────────────────
   useEffect(() => {
@@ -99,6 +109,7 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
     return () => {
       stopListening();
       stopAudio();
+      window.speechSynthesis?.cancel();
     };
   }, []);
 
@@ -139,9 +150,14 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
 
       setMessages(prev => [...prev, assistantMsg]);
 
-      // Auto-play TTS jika enabled
-      if (ttsEnabled && data.audioBase64) {
-        playAudio(data.audioBase64);
+      // Voice mode: pakai browser TTS (INSTANT, tidak perlu network)
+      // Chat mode: pakai Cloud TTS (kualitas lebih baik, untuk putar ulang)
+      if (ttsEnabledRef.current) {
+        if (voiceModeRef.current) {
+          speakBrowser(data.reply);
+        } else if (data.audioBase64) {
+          playAudio(data.audioBase64);
+        }
       }
 
     } catch (error) {
@@ -150,34 +166,62 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
         role: 'assistant',
         text: `Maaf, ${errMsg}. Coba lagi ya.`,
       }]);
+      // Jika error di voice mode, restart listening
+      if (voiceModeRef.current) {
+        setTimeout(() => startVoiceListeningRef.current(), 500);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, messages, scanContext, ttsEnabled]);
+  }, [isLoading, messages, scanContext]);
 
-  // ── Audio Playback ────────────────────────────────────────
+  // ── Browser TTS (INSTANT — Web Speech SynthesisAPI) ───────
+  // Dipakai di voice mode: tidak perlu network, langsung bicara
+  const speakBrowser = useCallback((text: string) => {
+    if (!ttsEnabledRef.current) return;
+    window.speechSynthesis?.cancel(); // stop yang sedang berjalan
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'id-ID';
+    utterance.rate = 1.05;
+    utterance.pitch = 1.0;
+    // Cari suara Indonesia jika tersedia
+    const voices = window.speechSynthesis.getVoices();
+    const idVoice = voices.find(v => v.lang.startsWith('id')) ||
+                    voices.find(v => v.lang.startsWith('en-US')); // fallback
+    if (idVoice) utterance.voice = idVoice;
+
+    setIsSpeaking(true);
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      // Auto-restart mic setelah AI selesai bicara
+      if (voiceModeRef.current && !isLoadingRef.current) {
+        setTimeout(() => startVoiceListeningRef.current(), 200);
+      }
+    };
+    utterance.onerror = () => setIsSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+  }, []);
+
+  // ── Cloud TTS Audio Playback (untuk tombol putar ulang di chat mode) ─
   const playAudio = (audioDataUrl: string) => {
     stopAudio();
     const audio = new Audio(audioDataUrl);
     audioRef.current = audio;
     setIsSpeaking(true);
-    audio.onended = () => {
-      setIsSpeaking(false);
-      // Jika di voice mode, otomatis mulai dengarkan lagi
-      if (voiceMode) {
-        setTimeout(() => startListening(), 300);
-      }
-    };
+    audio.onended = () => setIsSpeaking(false);
     audio.onerror = () => setIsSpeaking(false);
     audio.play().catch(() => setIsSpeaking(false));
   };
 
   const stopAudio = () => {
+    // Stop Cloud TTS audio
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       audioRef.current = null;
     }
+    // Stop browser TTS
+    window.speechSynthesis?.cancel();
     setIsSpeaking(false);
   };
 
@@ -260,8 +304,8 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
     };
 
     recognition.onend = () => {
-      // Selalu restart di voice mode — termasuk saat AI sedang bicara (supaya barge-in bisa deteksi)
-      if (voiceMode && !isLoading) {
+      // Pakai refs untuk menghindari stale closure
+      if (voiceModeRef.current && !isLoadingRef.current) {
         try { recognition.start(); } catch { /* sudah running */ }
       } else {
         setIsListening(false);
@@ -270,7 +314,12 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
 
     recognitionRef.current = recognition;
     recognition.start();
-  }, [createRecognition, voiceMode, isLoading, sendMessage]);
+  }, [createRecognition, sendMessage]);
+
+  // Sync ref agar speakBrowser bisa memanggil startVoiceListening terbaru
+  useEffect(() => {
+    startVoiceListeningRef.current = startVoiceListening;
+  }, [startVoiceListening]);
 
   /**
    * Mode TEXT — single utterance (klik mic di input box)
