@@ -17,55 +17,97 @@ import { Button } from '@/components/ui/button';
 // Setiap flag dari backend dipetakan ke penjelasan yang ramah.
 // ============================================================
 const EDUCATION_DICT: Record<string, { title: string; desc: string; tip: string }> = {
+  // ── Kategori Utama ────────────────────────────────────────────────────
   PHISHING: {
-    title: 'Apa itu Phishing?',
-    desc: 'Phishing adalah teknik penipuan di mana penjahat siber membuat halaman web palsu yang meniru tampilan asli bank, marketplace, atau media sosial untuk mencuri kata sandi dan data rekening Anda.',
-    tip: 'Selalu periksa ejaan domain (nama website) dengan teliti. BCA asli ada di "bca.co.id", bukan "bca-online.com" atau "klikbca-update.com".',
+    title: 'Apa itu Phishing (Pencurian Data)?',
+    desc: 'Phishing adalah teknik penipuan di mana penjahat siber membuat halaman web palsu yang meniru tampilan asli bank, marketplace, atau media sosial. Tujuannya satu: mencuri kata sandi, nomor rekening, atau kode OTP kamu.',
+    tip: 'Selalu periksa ejaan domain dengan teliti. BCA asli ada di "bca.co.id", bukan "bca-online.com" atau "klikbca-update.com". Beda satu huruf pun sudah beda website!',
   },
   JUDI_ONLINE: {
     title: 'Mengapa Judi Online Selalu Merugikan?',
-    desc: 'Sistem judi online dirancang secara matematis (algoritma RTP) agar bandar selalu untung dalam jangka panjang. Kemenangan kecil di awal adalah trik psikologis untuk memancing kecanduan. Tidak ada "pola gacor" atau "bocoran RTP" yang nyata — semuanya adalah ilusi yang diciptakan untuk menguras uangmu.',
-    tip: 'Jika seseorang mengirimimu link slot dengan janji "pasti menang" atau "terbukti maxwin", itu adalah jebakan. Blokir dan laporkan.',
+    desc: 'Sistem judi online dirancang secara matematis (algoritma RTP) agar bandar selalu untung dalam jangka panjang. Kemenangan kecil di awal adalah trik psikologis untuk memancing kecanduan. Tidak ada "pola gacor" atau "bocoran RTP" yang nyata — semuanya ilusi untuk menguras uangmu pelan-pelan.',
+    tip: 'Jika seseorang mengirimimu link slot dengan janji "pasti menang" atau "terbukti maxwin", itu adalah jebakan psikologis. Blokir kontaknya dan laporkan.',
   },
   MALWARE: {
-    title: 'Apa itu Malware?',
-    desc: 'Malware adalah perangkat lunak berbahaya (virus, spyware, ransomware) yang dirancang untuk merusak perangkatmu, mencuri data, atau memata-matai aktivitasmu tanpa sepengetahuanmu. Sering disebarkan lewat link unduhan palsu.',
-    tip: 'Jangan pernah menginstal aplikasi dari luar toko resmi (Play Store/App Store), terutama file berformat .APK yang dikirim via WhatsApp.',
+    title: 'Apa itu Malware / Virus Digital?',
+    desc: 'Malware adalah perangkat lunak berbahaya (virus, spyware, ransomware) yang dirancang untuk merusak perangkatmu, mencuri data, atau memata-matai aktivitasmu tanpa sepengetahuanmu. Sekali terinstal, ia bisa membaca semua SMS termasuk kode OTP bankmu.',
+    tip: 'Jangan pernah menginstal aplikasi dari luar toko resmi (Play Store/App Store), terutama file .APK yang dikirim via WhatsApp. Tidak ada "aplikasi premium gratis" — itu selalu jebakan.',
   },
   MENCURIGAKAN: {
-    title: 'Mengapa Link Ini Mencurigakan?',
-    desc: 'Link ini belum terbukti aman. Beberapa karakteristiknya cocok dengan pola penipuan, meskipun buktinya belum cukup kuat untuk dikategorikan berbahaya. Tetap waspada dan hindari memasukkan data pribadi.',
-    tip: 'Saat ragu, cari informasi resmi langsung dari website atau aplikasi resmi perusahaan tersebut, bukan dari link yang diterima via chat.',
+    title: 'Mengapa Link Ini Perlu Diwaspadai?',
+    desc: 'Link ini belum terbukti aman. Beberapa karakteristiknya cocok dengan pola penipuan, meskipun buktinya belum cukup kuat untuk dikategorikan berbahaya. Sistem kami mendeteksi anomali yang perlu kamu ketahui sebelum mengklik.',
+    tip: 'Saat ragu, cari informasi resmi langsung dari website atau aplikasi resmi perusahaan, bukan dari link yang diterima via chat atau media sosial.',
   },
+
+  // ── Teknik URL & Domain ───────────────────────────────────────────────
   DOMAIN_TOO_YOUNG: {
-    title: 'Apa itu "Umur Domain" dan mengapa ini mencurigakan?',
-    desc: '"Domain" adalah nama alamat website (seperti tokopedia.com atau bca.co.id). Website resmi perusahaan besar biasanya sudah berumur bertahun-tahun. Penipu selalu membuat domain baru setiap beberapa hari untuk menghindari diblokir, lalu langsung menghilang setelah korban tertipu.',
-    tip: 'Website resmi yang memintamu login atau transfer uang, tapi domainnya baru berumur beberapa hari? Itu hampir 100% penipuan.',
+    title: 'Domain Baru = Tanda Merah Penipuan',
+    desc: 'Website resmi perusahaan besar biasanya sudah berumur bertahun-tahun. Penipu selalu membuat domain baru setiap beberapa hari untuk menghindari diblokir, lalu langsung menghilang setelah korban tertipu. Domain baru yang meminta login atau transfer uang adalah alarm serius.',
+    tip: 'Cara cek: ketik nama domain di who.is atau whois.domaintools.com. Jika "Created" baru beberapa hari atau minggu, jangan percaya situsnya.',
+  },
+  TLD_MENCURIGAKAN: {
+    title: 'Ekstensi Domain Aneh — Kenapa Ini Bahaya?',
+    desc: 'Domain ekstensi seperti .vip, .top, .xyz, .click, .bet, .win, atau .casino sangat murah dan hampir tidak diawasi. Penipu memilih ekstensi ini karena mudah dibeli massal dan cepat diganti jika diblokir. Website resmi Indonesia umumnya menggunakan .co.id, .go.id, atau .com.',
+    tip: 'Jika kamu melihat link dengan ekstensi tidak lazim yang meminta login atau pembayaran, anggap itu penipuan sampai terbukti sebaliknya.',
   },
   URL_SHORTENER: {
-    title: 'Mengapa URL Pendek (Bit.ly, s.id) Bisa Berbahaya?',
-    desc: 'Layanan pemendek URL menyembunyikan alamat asli tujuan link. Penipu sering memanfaatkannya agar korban tidak bisa melihat nama domain berbahaya sebelum klik. Sistem kami membongkar link tersebut untuk memeriksa tujuan akhirnya.',
-    tip: 'Jika ada link bit.ly atau s.id yang mengarahkanmu ke halaman login bank atau memintamu untuk install aplikasi, jangan pernah diikuti.',
+    title: 'Link Dipendekkan — Apa yang Disembunyikan?',
+    desc: 'Layanan pemendek URL (bit.ly, s.id, cutt.ly) menyembunyikan alamat asli tujuan link. Penipu sering memanfaatkannya agar korban tidak bisa melihat nama domain berbahaya sebelum klik. Sistem kami membongkar link tersebut untuk memeriksa tujuan akhirnya.',
+    tip: 'Sebelum klik link pendek, gunakan checkshorturl.com atau unshorten.it untuk melihat kemana link itu sebenarnya menuju. Jika tujuannya tidak dikenal, jangan diklik.',
+  },
+  OPEN_REDIRECT: {
+    title: 'Pengalihan Tersembunyi — Trik Kabur dari Pantauan',
+    desc: 'Penipu memanfaatkan celah website resmi untuk "memantulkan" linknya, sehingga seolah-olah link berasal dari situs terpercaya padahal mengarah ke situs berbahaya. Contoh: link tampak dari google.com tapi langsung memindahkan ke situs phishing.',
+    tip: 'Jika sebuah link dari sumber terpercaya tiba-tiba membawamu ke halaman yang tidak relevan atau meminta login ulang, segera tutup dan jangan isi apapun.',
+  },
+
+  // ── Teknik Manipulasi Visual & Teks ──────────────────────────────────
+  JUDOL_KEYWORD: {
+    title: 'Kata Kunci Judi Tersembunyi di Nama Website',
+    desc: 'Penipu menyisipkan kata-kata seperti "gacor", "maxwin", "rtp", "scatter", atau "jackpot" langsung di nama domain untuk menarik perhatian korban yang mencari cara menang judi. Ini adalah taktik pemasaran manipulatif yang menargetkan orang yang putus asa secara finansial.',
+    tip: 'Kata "gacor" dan "maxwin" tidak ada artinya secara teknis — itu hanya istilah marketing untuk menarik korban. Tidak ada website yang bisa menjamin kemenangan.',
+  },
+  PHISHING_KEYWORD: {
+    title: 'Kata Kunci Penipuan Ditemukan di Alamat Link',
+    desc: 'Kata-kata seperti "verify", "secure", "login", "klaim", "hadiah", atau "menang" sengaja ditaruh di nama link untuk membuat korban panik atau serakah. Penipu tahu bahwa emosi yang kuat — takut atau girang — membuat orang tidak berpikir jernih.',
+    tip: 'Bank dan marketplace resmi TIDAK PERNAH mengirimkan link dengan kata "klaim hadiah" atau "verifikasi segera" via WhatsApp atau SMS. Jika ada, itu 100% penipuan.',
+  },
+  BRAND_IMPERSONATION: {
+    title: 'Meniru Brand Resmi — Kejahatan Identitas Digital',
+    desc: 'Penipu mendaftarkan domain yang sangat mirip dengan nama brand besar (BCA, Shopee, Tokopedia, dll) lalu membuat tampilan websitenya identik dengan aslinya. Korban mengira mereka di website resmi, padahal semua yang mereka ketikkan langsung masuk ke tangan penipu.',
+    tip: 'Cara aman: bookmark website bank dan marketplace resmimu. Akses selalu dari bookmark, bukan dari link yang diterima. Jangan pernah login dari link di SMS/WA/email.',
   },
   HOMOGRAPH: {
-    title: 'Apa itu Serangan Homograph?',
-    desc: 'Ini adalah teknik penipuan tingkat tinggi di mana penipu mengganti satu atau beberapa huruf dalam nama domain dengan karakter yang terlihat hampir sama dari alfabet lain (misalnya: huruf "а" Cyrillic vs huruf "a" Latin). Secara visual tampilannya identik, tapi alamatnya berbeda sepenuhnya.',
-    tip: 'Contoh: "goog1e.com" (angka 1, bukan huruf l) atau "bса.co.id" (huruf Cyrillic). Selalu ketik manual alamat website penting, jangan klik dari link.',
+    title: 'Karakter Palsu — Huruf yang Berpura-pura Jadi Huruf Lain',
+    desc: 'Teknik penipuan tingkat tinggi di mana penipu mengganti huruf di nama domain dengan karakter yang terlihat identik dari alfabet lain (misalnya: huruf "а" Cyrillic vs "a" Latin). Secara visual tampilannya sama persis, tapi komputermu mengenalinya sebagai website yang berbeda.',
+    tip: 'Contoh nyata: "bса.co.id" (pakai huruf Cyrillic) vs "bca.co.id" (asli). Bedanya tidak terlihat mata! Selalu ketik manual alamat website penting, jangan klik dari link.',
   },
+
+  // ── Teknik Penyemaran Jejak ───────────────────────────────────────────
   SOCIAL_ENGINEERING: {
-    title: 'Apa itu Social Engineering (Rekayasa Sosial)?',
-    desc: 'Ini adalah teknik manipulasi psikologis yang memanfaatkan emosi manusia (keserakahan, ketakutan, urgensi, atau kasih sayang) agar korban mengambil keputusan ceroboh tanpa berpikir panjang. Contoh: "Selamat Anda menang!", "Rekening Anda akan diblokir!", "Paket Anda tertahan bea cukai".',
-    tip: 'Aturan emas: JIKA ADA URGENSI MENDADAK yang memaksamu KLIK atau TRANSFER SEKARANG, itu adalah tanda penipuan. Berhenti sejenak, verifikasi dulu melalui saluran resmi.',
+    title: 'Manipulasi Psikologis — Menyerang Emosi, Bukan Komputer',
+    desc: 'Rekayasa sosial adalah teknik yang memanfaatkan emosi manusia: keserakahan ("Kamu menang!"), ketakutan ("Rekening diblokir!"), atau urgensi ("Hanya 10 menit lagi!"). Penipu tidak perlu meretas sistemmu — mereka cukup membuatmu panik hingga mengklik tanpa berpikir.',
+    tip: 'Aturan emas: APAPUN yang menciptakan urgensi mendadak dan memaksamu KLIK atau TRANSFER SEKARANG adalah penipuan. Berhenti, tarik napas, verifikasi lewat saluran resmi dulu.',
   },
   IP_ADDRESS: {
-    title: 'Mengapa IP Address sebagai URL itu Mencurigakan?',
-    desc: 'Website resmi selalu menggunakan nama domain (seperti "tokopedia.com"). Jika sebuah link mengarahkan ke angka IP langsung (seperti "http://192.168.1.1/login"), itu hampir pasti adalah halaman penipuan atau jebakan.',
-    tip: 'Tidak ada bank, marketplace, atau layanan resmi manapun yang menggunakan alamat IP sebagai URL untuk login. Hindari link semacam ini.',
+    title: 'Alamat IP Langsung — Website Tanpa Identitas',
+    desc: 'Website resmi selalu menggunakan nama domain (seperti "tokopedia.com"). Jika sebuah link mengarah ke deretan angka IP (seperti "http://103.28.12.5/login"), itu hampir pasti halaman penipuan — karena penipu tidak mau mendaftarkan domain yang bisa dilacak identitasnya.',
+    tip: 'Tidak ada bank, marketplace, atau layanan resmi yang menggunakan alamat IP langsung untuk halaman login. Jika kamu melihatnya, tutup segera.',
   },
   CROSS_COUNTRY: {
-    title: 'Apa itu Cross-Country Redirect?',
-    desc: 'Link ini melewati beberapa server di berbagai negara sebelum sampai ke tujuan akhir. Teknik ini digunakan penipu agar jejaknya sulit dilacak oleh pihak berwajib. Website resmi Indonesia tidak perlu melewati server Rusia, Kamboja, atau Panama.',
-    tip: 'Jika sebuah link "toko Indonesia" tapi servernya terdeteksi di negara lain yang tidak terkait, itu adalah tanda merah yang serius.',
+    title: 'Server Berpindah Negara — Menyembunyikan Jejak Kejahatan',
+    desc: 'Link ini melewati beberapa server di berbagai negara sebelum sampai ke tujuan akhir. Teknik ini digunakan penipu agar jejaknya sulit dilacak oleh Kominfo, Polri, atau interpol. Website resmi Indonesia tidak perlu routing ke Rusia, Kamboja, atau Kepulauan Marshall.',
+    tip: 'Server hop ke negara-negara yang tidak relevan adalah tanda kuat bahwa operatornya sedang menyembunyikan identitas. Jangan percayai website seperti ini.',
+  },
+  SSL: {
+    title: 'Sertifikat Keamanan Bermasalah — Koneksimu Tidak Terenkripsi',
+    desc: 'Sertifikat SSL (gembok hijau di browser) memastikan data yang kamu kirim terenkripsi dan tidak bisa dibaca pihak lain. Jika sertifikatnya tidak valid, rusak, atau tidak ada, data yang kamu masukkan — termasuk kata sandi dan nomor rekening — bisa dicuri di tengah jalan.',
+    tip: 'Selalu pastikan ada ikon gembok (🔒) di bilah alamat browser sebelum memasukkan data sensitif apapun. Jika ada peringatan "Not Secure", tutup segera.',
+  },
+  AUTO_DOWNLOAD: {
+    title: 'Unduhan Otomatis — Instal Virus Tanpa Sepengetahuanmu',
+    desc: 'Website ini mencoba mengunduh file ke perangkatmu secara otomatis tanpa izin eksplisit. Penipu menggunakan teknik ini untuk menginstal spyware, ransomware, atau keylogger yang kemudian mencuri semua data di perangkatmu — termasuk foto, kontak, dan akses ke aplikasi banking.',
+    tip: 'Jika browser tiba-tiba mengunduh file yang tidak kamu minta, batalkan unduhan dan jangan buka filenya. Jalankan antivirus segera. Tidak ada website resmi yang memaksamu mengunduh file tanpa persetujuan.',
   },
 };
 
@@ -334,7 +376,7 @@ export default function VerdictCard({
     if (foundKeywords.length > 0) {
       technicalPills.push({
         label: `Kata Kunci Judi di Nama Website ("${foundKeywords.slice(0, 2).join('", "')}")`,
-        key: 'JUDI_ONLINE',
+        key: 'JUDOL_KEYWORD',
         isBad: true,
       });
     }
@@ -348,7 +390,7 @@ export default function VerdictCard({
   if (foundPhishingKw.length > 0 && result.categories.some((c) => c.includes('PHISHING'))) {
     technicalPills.push({
       label: `Kata Kunci Penipuan di URL ("${foundPhishingKw.slice(0, 2).join('", "')}")`,
-      key: 'SOCIAL_ENGINEERING',
+      key: 'PHISHING_KEYWORD',
       isBad: true,
     });
   }
@@ -358,7 +400,7 @@ export default function VerdictCard({
   if (BRANDS.some((b) => aiText.includes(b)) && result.categories.some((c) => c.includes('PHISHING'))) {
     technicalPills.push({
       label: 'Meniru Tampilan / Nama Brand Resmi (Typosquatting)',
-      key: 'HOMOGRAPH',
+      key: 'BRAND_IMPERSONATION',
       isBad: true,
     });
   }
@@ -368,7 +410,7 @@ export default function VerdictCard({
   if (SUSPICIOUS_TLDS.some((tld) => rawUrl.toLowerCase().includes(tld))) {
     technicalPills.push({
       label: `Ekstensi Domain Tidak Lazim & Berisiko Tinggi`,
-      key: 'DOMAIN_TOO_YOUNG',
+      key: 'TLD_MENCURIGAKAN',
       isBad: true,
     });
   }
@@ -443,22 +485,22 @@ export default function VerdictCard({
     },
     {
       keywords: ['TLD_MENCURIGAKAN'],
-      key: 'DOMAIN_TOO_YOUNG',
+      key: 'TLD_MENCURIGAKAN',
       label: 'Menggunakan Ekstensi Domain Tidak Lazim (.vip / .top / .xyz)',
     },
     {
       keywords: ['SSL', 'SERTIFIKAT'],
-      key: 'PHISHING',
+      key: 'SSL',
       label: 'Sertifikat Keamanan (SSL) Bermasalah atau Tidak Valid',
     },
     {
       keywords: ['AUTO_DOWNLOAD'],
-      key: 'MALWARE',
-      label: 'Mengunduh File Otomatis Tanpa Izin',
+      key: 'AUTO_DOWNLOAD',
+      label: 'Mengunduh File Otomatis Tanpa Izin (Malware Dropper)',
     },
     {
       keywords: ['OPEN_REDIRECT'],
-      key: 'URL_SHORTENER',
+      key: 'OPEN_REDIRECT',
       label: 'Pengalihan URL Tersembunyi (Open Redirect)',
     },
   ];
