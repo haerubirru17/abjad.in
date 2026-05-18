@@ -45,7 +45,7 @@ async function textToSpeech(text) {
     input: { text: clampedText },
     voice: {
       languageCode: 'id-ID',
-      name: 'id-ID-Wavenet-D', // Suara perempuan Indonesia paling natural
+      name: 'id-ID-Wavenet-A', // Suara perempuan Indonesia yang lebih natural dan kasual
       ssmlGender: 'FEMALE'
     },
     audioConfig: {
@@ -81,7 +81,7 @@ async function textToSpeech(text) {
     });
 
     req.on('error', () => resolve(null));
-    req.setTimeout(5000, () => { req.destroy(); resolve(null); }); // Bug #3: perketat timeout TTS
+    req.setTimeout(10000, () => { req.destroy(); resolve(null); }); // Timeout 10s agar TTS sempat selesai
     req.write(body);
     req.end();
   });
