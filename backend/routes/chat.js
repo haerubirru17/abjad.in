@@ -81,7 +81,7 @@ async function textToSpeech(text) {
     });
 
     req.on('error', () => resolve(null));
-    req.setTimeout(8000, () => { req.destroy(); resolve(null); });
+    req.setTimeout(5000, () => { req.destroy(); resolve(null); }); // Bug #3: perketat timeout TTS
     req.write(body);
     req.end();
   });
@@ -166,10 +166,16 @@ router.post('/', async (req, res) => {
       }
     }
 
-    // Jika setelah sanitasi jumlah ganjil (belum pasangan lengkap),
-    // buang elemen terakhir agar selalu berakhir dengan 'model'
-    if (validHistory.length > 0 && validHistory[validHistory.length - 1].role === 'user') {
-      validHistory.pop();
+    // Pastikan history berakhir dengan 'model' (pasangan lengkap)
+    // TAPI hanya buang jika tidak ada pasangan model sama sekali di seluruh history,
+    // karena membuang user entry valid menyebabkan konteks Q2+ hilang.
+    // Correct: history boleh diakhiri user jika itu memang satu-satunya entry.
+    // Gemini menerima history [user, model, user, model] — selalu harus berpasangan.
+    while (validHistory.length > 0 && validHistory[validHistory.length - 1].role === 'user') {
+      // Cek apakah ada model sebelumnya; jika tidak, history ini tidak valid — hapus
+      const hasModelPair = validHistory.some(h => h.role === 'model');
+      if (!hasModelPair) { validHistory.length = 0; break; }
+      validHistory.pop(); // buang trailing user agar pasangan lengkap
     }
 
     console.log(`[ChatRoute] Valid history entries: ${validHistory.length}, message: "${message.trim().slice(0, 50)}"`);

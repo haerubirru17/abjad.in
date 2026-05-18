@@ -77,16 +77,28 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const vadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const accumulatedTextRef = useRef<string>('');
+  const isSubmittingRef = useRef(false);                               // Bug #2: guard double-send
+  const voicesRef = useRef<SpeechSynthesisVoice[]>([]);                // Bug #3: cached voices
+  const uttWatchdogRef = useRef<ReturnType<typeof setInterval> | null>(null); // Bug #1: Chrome onend fix
   // Refs untuk menghindari stale closure di speech recognition callbacks
   const voiceModeRef = useRef(false);
   const isLoadingRef = useRef(false);
   const ttsEnabledRef = useRef(true);
   const startVoiceListeningRef = useRef<() => void>(() => {});
+  const sendMessageRef = useRef<(text: string) => void>(() => {});     // Bug #1: anti stale-closure
 
   // ── Sync refs dengan state ─────────────────────────────────
   useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
   useEffect(() => { isLoadingRef.current = isLoading; }, [isLoading]);
   useEffect(() => { ttsEnabledRef.current = ttsEnabled; }, [ttsEnabled]);
+
+  // ── Pre-load & cache voices (Bug #3: getVoices() bersifat async) ──
+  useEffect(() => {
+    const load = () => { voicesRef.current = window.speechSynthesis?.getVoices() || []; };
+    load();
+    window.speechSynthesis?.addEventListener('voiceschanged', load);
+    return () => window.speechSynthesis?.removeEventListener('voiceschanged', load);
+  }, []);
 
   // ── Auto scroll ke bawah saat pesan baru ──────────────────
   useEffect(() => {
@@ -115,12 +127,14 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
 
   // ── Send Message to Backend ───────────────────────────────
   const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || isLoading) return;
+    // Bug #2: tolak jika sedang loading ATAU sedang menunggu response sebelumnya
+    if (!text.trim() || isLoading || isSubmittingRef.current) return;
 
     const userMsg: ChatMessage = { role: 'user', text: text.trim() };
     setMessages(prev => [...prev, userMsg]);
     setInputText('');
     setIsLoading(true);
+    isSubmittingRef.current = true; // Bug #2: set flag sebelum request
     setLiveTranscript('');
 
     try {
@@ -150,11 +164,22 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
 
       setMessages(prev => [...prev, assistantMsg]);
 
-      // Voice mode: pakai browser TTS (INSTANT, tidak perlu network)
-      // Chat mode: pakai Cloud TTS (kualitas lebih baik, untuk putar ulang)
+      // Voice mode: prioritas Cloud TTS (Google WaveNet, jauh lebih natural)
+      //             fallback ke browser TTS jika API key tidak tersedia
+      // Chat mode:  selalu Cloud TTS untuk tombol putar ulang
       if (ttsEnabledRef.current) {
         if (voiceModeRef.current) {
-          speakBrowser(data.reply);
+          if (data.audioBase64) {
+            // Cloud TTS tersedia → pakai WaveNet, restart mic setelah selesai
+            playAudio(data.audioBase64, () => {
+              if (voiceModeRef.current && !isLoadingRef.current) {
+                setTimeout(() => startVoiceListeningRef.current(), 300);
+              }
+            });
+          } else {
+            // Fallback: browser TTS jika tidak ada API key
+            speakBrowser(data.reply);
+          }
         } else if (data.audioBase64) {
           playAudio(data.audioBase64);
         }
@@ -172,45 +197,69 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
       }
     } finally {
       setIsLoading(false);
+      isSubmittingRef.current = false; // Bug #2: release flag setelah selesai
     }
   }, [isLoading, messages, scanContext]);
+
+  // Sync sendMessageRef agar callbacks speech recognition selalu pakai versi terbaru
+  useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
   // ── Browser TTS (INSTANT — Web Speech SynthesisAPI) ───────
   // Dipakai di voice mode: tidak perlu network, langsung bicara
   const speakBrowser = useCallback((text: string) => {
     if (!ttsEnabledRef.current) return;
-    window.speechSynthesis?.cancel(); // stop yang sedang berjalan
+
+    // Hentikan utterance & watchdog sebelumnya
+    if (uttWatchdogRef.current) { clearInterval(uttWatchdogRef.current); uttWatchdogRef.current = null; }
+    window.speechSynthesis?.cancel();
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'id-ID';
     utterance.rate = 1.05;
     utterance.pitch = 1.0;
-    // Cari suara Indonesia jika tersedia
-    const voices = window.speechSynthesis.getVoices();
-    const idVoice = voices.find(v => v.lang.startsWith('id')) ||
-                    voices.find(v => v.lang.startsWith('en-US')); // fallback
+
+    // Bug #3: gunakan cached voices, hindari getVoices() setiap call
+    const idVoice = voicesRef.current.find(v => v.lang.startsWith('id')) ||
+                    voicesRef.current.find(v => v.lang.startsWith('en-US'));
     if (idVoice) utterance.voice = idVoice;
 
-    setIsSpeaking(true);
-    utterance.onend = () => {
+    const onFinish = () => {
+      if (uttWatchdogRef.current) { clearInterval(uttWatchdogRef.current); uttWatchdogRef.current = null; }
       setIsSpeaking(false);
       // Auto-restart mic setelah AI selesai bicara
       if (voiceModeRef.current && !isLoadingRef.current) {
-        setTimeout(() => startVoiceListeningRef.current(), 200);
+        setTimeout(() => startVoiceListeningRef.current(), 300);
       }
     };
-    utterance.onerror = () => setIsSpeaking(false);
+
+    setIsSpeaking(true);
+    utterance.onend = onFinish;
+    utterance.onerror = onFinish;
     window.speechSynthesis.speak(utterance);
+
+    // Bug #1: Chrome watchdog — onend kadang tidak fire sama sekali
+    // Cek setiap 250ms apakah speechSynthesis sudah berhenti
+    uttWatchdogRef.current = setInterval(() => {
+      if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+        onFinish();
+      }
+    }, 250);
   }, []);
 
-  // ── Cloud TTS Audio Playback (untuk tombol putar ulang di chat mode) ─
-  const playAudio = (audioDataUrl: string) => {
+  // ── Cloud TTS Audio Playback ────────────────────────────────────────────
+  // onFinished: opsional, dipanggil setelah audio selesai (dipakai voice mode untuk restart mic)
+  const playAudio = (audioDataUrl: string, onFinished?: () => void) => {
     stopAudio();
     const audio = new Audio(audioDataUrl);
     audioRef.current = audio;
     setIsSpeaking(true);
-    audio.onended = () => setIsSpeaking(false);
-    audio.onerror = () => setIsSpeaking(false);
-    audio.play().catch(() => setIsSpeaking(false));
+    const handleEnd = () => {
+      setIsSpeaking(false);
+      onFinished?.();
+    };
+    audio.onended = handleEnd;
+    audio.onerror = handleEnd;
+    audio.play().catch(handleEnd);
   };
 
   const stopAudio = () => {
@@ -258,11 +307,20 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
     recognition.onstart = () => setIsListening(true);
 
     recognition.onresult = (event: any) => {
-      // ── BARGE-IN: user bicara saat AI sedang ngomong → stop AI audio langsung
+      // Bug #2: abaikan hasil jika sedang memproses request sebelumnya
+      if (isSubmittingRef.current) return;
+
+      // ── BARGE-IN: user bicara saat AI sedang ngomong (Cloud TTS)
       if (audioRef.current && !audioRef.current.paused) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
         audioRef.current = null;
+        setIsSpeaking(false);
+      }
+      // Bug #3: BARGE-IN browser TTS — cancel langsung jika user mulai bicara
+      if (window.speechSynthesis?.speaking) {
+        if (uttWatchdogRef.current) { clearInterval(uttWatchdogRef.current); uttWatchdogRef.current = null; }
+        window.speechSynthesis.cancel();
         setIsSpeaking(false);
       }
 
@@ -283,17 +341,18 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
 
       setLiveTranscript(accumulatedTextRef.current + (interim ? ' ' + interim : ''));
 
-      // Reset VAD timer — kirim setelah 1.5 detik diam
+      // Bug #2: VAD 2200ms (lebih natural, sesuai pola bicara Indonesia)
       if (vadTimerRef.current) clearTimeout(vadTimerRef.current);
       if (accumulatedTextRef.current) {
         vadTimerRef.current = setTimeout(() => {
           const toSend = accumulatedTextRef.current.trim();
-          if (toSend) {
+          // Bug #2: minimum 3 karakter agar tidak mengirim noise/suara pendek
+          if (toSend && toSend.length >= 3) {
             accumulatedTextRef.current = '';
             setLiveTranscript('');
-            sendMessage(toSend);
+            sendMessageRef.current(toSend); // Bug #1: pakai ref, bukan closure
           }
-        }, 1500);
+        }, 2200);
       }
     };
 
@@ -304,9 +363,12 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
     };
 
     recognition.onend = () => {
-      // Pakai refs untuk menghindari stale closure
-      if (voiceModeRef.current && !isLoadingRef.current) {
-        try { recognition.start(); } catch { /* sudah running */ }
+      // Bug #2: jangan restart jika sedang submit — tunggu selesai dulu
+      if (voiceModeRef.current && !isLoadingRef.current && !isSubmittingRef.current) {
+        // Bug #2: cooldown 800ms sebelum restart untuk mencegah menangkap ambient noise
+        setTimeout(() => {
+          try { recognition.start(); } catch { /* sudah running */ }
+        }, 800);
       } else {
         setIsListening(false);
       }
@@ -528,7 +590,8 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
                         whileTap={{ scale: 0.9 }}
                         onClick={() => {
                           if (isSpeaking) { stopAudio(); return; }
-                          if (isListening) { stopListening(); } else { startListening(); }
+                          // Bug #1: voice mode harus pakai startVoiceListening (continuous), bukan startListening (single)
+                          if (isListening) { stopListening(); } else { startVoiceListening(); }
                         }}
                         disabled={isLoading}
                         className={`w-16 h-16 rounded-full flex items-center justify-center cursor-pointer transition-all shadow-lg ${
