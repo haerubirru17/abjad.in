@@ -72,7 +72,7 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
 
   // ── Refs ───────────────────────────────────────────────────
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<unknown>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -192,14 +192,14 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
       return;
     }
 
-    const recognition = new (SpeechRecognition as new () => SpeechRecognition)();
+    const recognition = new (SpeechRecognition as new () => any)();
     recognition.lang = 'id-ID';
     recognition.continuous = false;
     recognition.interimResults = true;
 
     recognition.onstart = () => setIsListening(true);
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: any) => {
       let interim = '';
       let final = '';
       for (let i = 0; i < event.results.length; i++) {
@@ -232,7 +232,7 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
 
   const stopListening = () => {
     if (recognitionRef.current) {
-      recognitionRef.current.abort();
+      (recognitionRef.current as any).abort();
       recognitionRef.current = null;
     }
     setIsListening(false);
