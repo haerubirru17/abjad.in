@@ -140,17 +140,45 @@ router.post('/', async (req, res) => {
       }
     });
 
-    // Bangun history percakapan untuk multi-turn
-    const chat = model.startChat({
-      history: (history || []).slice(-10).map(h => ({
-        role: h.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: h.text || '' }]
-      }))
-    });
+    // ── Sanitasi History ─────────────────────────────────────────────────
+    // Gemini startChat butuh: alternating user→model, DIMULAI dengan 'user'
+    // Filter: buang greeting-only (assistant/model di awal), pastikan valid pairs
+    const rawHistory = (history || []).slice(-10);
+    
+    // Map role dulu
+    const mappedHistory = rawHistory.map(h => ({
+      role: h.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: (h.text || '').trim() }]
+    })).filter(h => h.parts[0].text.length > 0); // buang entri kosong
 
-    // Timeout 10 detik untuk Gemini chat
+    // Gemini requires history to start with 'user' role
+    // Trim semua 'model' di awal sampai ketemu 'user'
+    while (mappedHistory.length > 0 && mappedHistory[0].role === 'model') {
+      mappedHistory.shift();
+    }
+
+    // Pastikan tidak ada dua role yang sama berurutan (bisa crash Gemini)
+    const validHistory = [];
+    for (const entry of mappedHistory) {
+      const last = validHistory[validHistory.length - 1];
+      if (!last || last.role !== entry.role) {
+        validHistory.push(entry);
+      }
+    }
+
+    // Jika setelah sanitasi jumlah ganjil (belum pasangan lengkap),
+    // buang elemen terakhir agar selalu berakhir dengan 'model'
+    if (validHistory.length > 0 && validHistory[validHistory.length - 1].role === 'user') {
+      validHistory.pop();
+    }
+
+    console.log(`[ChatRoute] Valid history entries: ${validHistory.length}, message: "${message.trim().slice(0, 50)}"`);
+
+    const chat = model.startChat({ history: validHistory });
+
+    // Timeout 15 detik untuk Gemini chat
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('AI Timeout')), 10000)
+      setTimeout(() => reject(new Error('AI Timeout')), 15000)
     );
 
     const result = await Promise.race([
@@ -159,8 +187,9 @@ router.post('/', async (req, res) => {
     ]);
 
     const reply = result.response.text().trim();
+    console.log(`[ChatRoute] Reply generated (${reply.length} chars)`);
 
-    // Generate audio TTS (non-blocking jika gagal)
+    // Generate audio TTS (non-blocking — jika gagal, tetap kirim teks)
     const audioBase64 = await textToSpeech(reply);
 
     return res.json({
@@ -169,10 +198,14 @@ router.post('/', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[ChatRoute] Error:', error.message);
+    console.error('[ChatRoute] Error detail:', error.message, error.status, error.stack?.slice(0, 300));
 
     if (error.message === 'AI Timeout') {
       return res.status(504).json({ error: 'AI sedang sibuk. Coba lagi sebentar.' });
+    }
+
+    if (error.status === 429 || error.message?.includes('429')) {
+      return res.status(429).json({ error: 'Kuota AI sedang penuh. Coba lagi dalam 1 menit.' });
     }
 
     return res.status(500).json({
