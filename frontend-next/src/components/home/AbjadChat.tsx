@@ -197,15 +197,16 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
   }, []);
 
   /**
-   * Mode VOICE — continuous + VAD debounce
-   * Kirim pesan otomatis setelah 1.5 detik diam
+   * Mode VOICE — continuous + VAD debounce + BARGE-IN
+   * - Kirim pesan otomatis setelah 1.5 detik diam
+   * - User bisa interupsi AI kapanpun, audio langsung berhenti
    */
   const startVoiceListening = useCallback(() => {
     const recognition = createRecognition(true);
     if (!recognition) return;
 
     recognition.lang = 'id-ID';
-    recognition.continuous = true;      // terus mendengarkan
+    recognition.continuous = true;
     recognition.interimResults = true;
 
     accumulatedTextRef.current = '';
@@ -213,7 +214,14 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
     recognition.onstart = () => setIsListening(true);
 
     recognition.onresult = (event: any) => {
-      // Ambil semua teks final baru sejak result terakhir
+      // ── BARGE-IN: user bicara saat AI sedang ngomong → stop AI audio langsung
+      if (audioRef.current && !audioRef.current.paused) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        audioRef.current = null;
+        setIsSpeaking(false);
+      }
+
       let newFinal = '';
       let interim = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -229,7 +237,6 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
         accumulatedTextRef.current += (accumulatedTextRef.current ? ' ' : '') + newFinal.trim();
       }
 
-      // Tampilkan live transcript
       setLiveTranscript(accumulatedTextRef.current + (interim ? ' ' + interim : ''));
 
       // Reset VAD timer — kirim setelah 1.5 detik diam
@@ -247,15 +254,14 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
     };
 
     recognition.onerror = (e: any) => {
-      // 'no-speech' bukan error fatal — cukup tunggu
-      if (e.error === 'no-speech') return;
+      if (e.error === 'no-speech') return; // bukan error fatal
       setIsListening(false);
       setLiveTranscript('');
     };
 
     recognition.onend = () => {
-      // Di voice mode continuous, restart otomatis kecuali sedang loading/speaking
-      if (voiceMode && !isLoading && !isSpeaking) {
+      // Selalu restart di voice mode — termasuk saat AI sedang bicara (supaya barge-in bisa deteksi)
+      if (voiceMode && !isLoading) {
         try { recognition.start(); } catch { /* sudah running */ }
       } else {
         setIsListening(false);
@@ -264,7 +270,7 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
 
     recognitionRef.current = recognition;
     recognition.start();
-  }, [createRecognition, voiceMode, isLoading, isSpeaking, sendMessage]);
+  }, [createRecognition, voiceMode, isLoading, sendMessage]);
 
   /**
    * Mode TEXT — single utterance (klik mic di input box)
