@@ -6,6 +6,7 @@ import HeroSection from '@/components/home/HeroSection';
 import SocialProof from '@/components/home/SocialProof';
 import VerdictCard from '@/components/home/VerdictCard';
 import WorkflowDiagram from '@/components/home/WorkflowDiagram';
+import AbjadChat from '@/components/home/AbjadChat';
 
 interface VerdictResult {
   finalVerdict: 'SAFE' | 'SUSPICIOUS' | 'MALICIOUS';
@@ -143,6 +144,18 @@ export default function Home() {
           </p>
         </div>
       </footer>
+
+      {/* AbjadIn Voice Chat — muncul setelah hasil scan tersedia */}
+      <AbjadChat
+        scanContext={result ? {
+          verdict: result.finalVerdict,
+          score: result.confidenceScore,
+          category: result.categories.join(', '),
+          explanation: result.aiInsights,
+          flags: result.technicalFlags,
+        } : null}
+      />
     </div>
   );
 }
+

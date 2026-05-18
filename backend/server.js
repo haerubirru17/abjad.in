@@ -16,6 +16,7 @@ const analyzeRoute = require('./routes/analyze');
 const scanRoute = require('./routes/scan');
 const newsRoute = require('./routes/news');
 const feedbackRoute = require('./routes/feedback');
+const chatRoute = require('./routes/chat');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -58,6 +59,7 @@ app.use('/api/analyze', analyzeRoute);
 app.use('/api/scan', scanRoute);
 app.use('/api/news', newsRoute);
 app.use('/api/feedback', feedbackRoute);
+app.use('/api/chat', chatRoute);
 
 // Health Check
 app.get('/health', (req, res) => {
