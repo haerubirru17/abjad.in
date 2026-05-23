@@ -69,15 +69,29 @@ async function predictLexical(urlString) {
     }
     
     if (results.output_probability) {
-      // probabilitas output
-      const probs = results.output_probability.data;
-      // probs adalah array objek {0: prob0, 1: prob1} jika mappingnya didukung, 
-      // Tapi dalam ONNX.js biasanya berupa Sequence atau Map.
-      // Untuk mempermudah, karena labelnya 1=phishing, kita ambil data probabilitas
-      // skl2onnx biasanya mengembalikan map untuk probabilities.
-      // jika di JS agak tricky membaca sequence of maps dari ONNX,
-      // kita cukup gunakan prediksi labelnya.
-      confidence = 0.8; // default confidence
+      // Coba baca probability untuk class 1 (phishing) dari ONNX output
+      // skl2onnx menghasilkan Sequence of Map: [{0: prob_benign, 1: prob_phishing}, ...]
+      try {
+        const probData = results.output_probability.data;
+        if (probData && typeof probData[1] === 'number') {
+          // Map format: data[0] = prob class 0, data[1] = prob class 1
+          confidence = probData[1];
+        } else if (probData && probData[0] && typeof probData[0][1] === 'number') {
+          // Sequence of map format
+          confidence = probData[0][1];
+        } else {
+          // Fallback konservatif — lebih rendah dari 0.8 agar tidak trigger override paksa
+          confidence = isPhishing ? 0.60 : 0.35;
+        }
+      } catch {
+        // Jika gagal parse probability, gunakan nilai konservatif
+        // 0.60 sengaja di bawah threshold 0.90 agar tidak memicu early-exit BERBAHAYA
+        confidence = isPhishing ? 0.60 : 0.35;
+      }
+    } else {
+      // Tidak ada probability output — hanya ada label
+      // Gunakan nilai konservatif, bukan 0.8 yang menyesatkan
+      confidence = isPhishing ? 0.60 : 0.35;
     }
     
     return {

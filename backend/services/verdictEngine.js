@@ -98,20 +98,45 @@ function aggregateIntelScore(results) {
 
   let baseScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
 
-  // ML Lexical Score — Berperan sebagai primary fallback
-  // DIKECUALIKAN untuk domain yang sudah ada di whitelist resmi (cegah false positive)
-  const isWhitelistedDomain = results.domain?.isWhitelisted === true;
-  if (results.mlLexical && !isWhitelistedDomain) {
-    if (results.mlLexical.isPhishing) {
-      // Jika ML mendeteksi phishing, pastikan baseScore intel minimal 85
-      baseScore = Math.max(baseScore, 85);
+  // ── AI-FIRST: Periksa apakah Gemini confident domain ini AMAN / brand resmi ──
+  // Ini adalah inti dari paradigma baru: Gemini punya world knowledge, ML tidak.
+  const geminiVerdict = results.gemini?.url?.verdict;
+  const geminiConfidence = results.gemini?.url?.confidence || 0;
+  const brandRecognition = results.gemini?.url?.brandRecognition;
+
+  const geminiConfidentSafe =
+    geminiVerdict === 'AMAN' && geminiConfidence >= 0.75;
+
+  const geminiKnownBrand =
+    brandRecognition?.isKnownBrand === true &&
+    brandRecognition?.isOfficialDomain === true;
+
+  // ML Lexical Score — HANYA berkontribusi jika Gemini tidak yakin domain aman
+  if (results.mlLexical && results.mlLexical.isPhishing) {
+    if (geminiConfidentSafe || geminiKnownBrand) {
+      // Gemini lebih tahu dari ML: domain resmi yang dikenal AI global
+      // ML bisa saja salah karena hanya lihat pola karakter URL, bukan konteks
+      // Berikan kenaikan skor sangat kecil sebagai "token of suspicion"
+      baseScore += 5;
+      console.log('[VerdictEngine] ML phishing signal diabaikan: Gemini confident domain aman/brand resmi');
+    } else if (geminiConfidence < 0.5) {
+      // Gemini tidak yakin, ML mendeteksi phishing → naikkan moderat
+      // Tapi tetap batasi agar tidak langsung melompat ke 85
+      baseScore = Math.max(baseScore, Math.min(65, baseScore + 25));
       if (!results.normalized) results.normalized = { flags: [] };
       if (!results.normalized.flags) results.normalized.flags = [];
       results.normalized.flags.push('ML_LEXICAL: SUSPICIOUS_URL_PATTERN');
     } else {
-      // Jika ML bilang aman, turunkan sedikit resikonya atau biarkan
-      baseScore = Math.min(baseScore, Math.max(0, baseScore - 10));
+      // Gemini punya pandangan tapi tidak yakin aman, ML mendeteksi phishing
+      // Naikkan skor tapi tidak separah sebelumnya
+      baseScore = Math.max(baseScore, Math.min(70, baseScore + 20));
+      if (!results.normalized) results.normalized = { flags: [] };
+      if (!results.normalized.flags) results.normalized.flags = [];
+      results.normalized.flags.push('ML_LEXICAL: SUSPICIOUS_URL_PATTERN');
     }
+  } else if (results.mlLexical && !results.mlLexical.isPhishing) {
+    // ML bilang aman — turunkan skor sedikit sebagai sinyal positif
+    baseScore = Math.max(0, baseScore - 8);
   }
 
   return baseScore;
@@ -251,6 +276,15 @@ function collectFactors(allResults) {
   if (allResults.domain?.ssl?.hasHttps) positive.push('Website menggunakan HTTPS');
   if (allResults.domain?.rdap?.ageInDays > 365) positive.push(`Domain berumur ${allResults.domain.rdap.ageInDays} hari`);
 
+  // AI Brand Recognition — sinyal positif kuat dari Gemini
+  const brand = allResults.gemini?.url?.brandRecognition;
+  if (brand?.isKnownBrand && brand?.isOfficialDomain) {
+    positive.push(`Domain resmi ${brand.brandName || 'brand terkenal'} dikenali oleh AI`);
+  }
+  if (allResults.gemini?.url?.verdict === 'AMAN' && (allResults.gemini?.url?.confidence || 0) >= 0.75) {
+    positive.push('AI menyatakan domain ini aman dengan keyakinan tinggi');
+  }
+
   // Negative factors from flags
   const allFlags = [
     ...(allResults.normalized?.flags || []),
@@ -292,12 +326,31 @@ function calculateVerdict(allResults, senderContext = null) {
     const intelScore = aggregateIntelScore(allResults);
     const geminiScore = aggregateGeminiScore(allResults.gemini);
 
-    // LANGKAH 3: Gap logic
+    // LANGKAH 3: Gap logic — AI-First Edition
+    // Gap besar berarti dua sistem tidak sepakat — tapi sekarang kita
+    // percayai Gemini lebih banyak karena dia punya world knowledge
     const gap = Math.abs(intelScore - geminiScore);
+    const geminiConfidence = allResults.gemini?.url?.confidence || 0;
+    const geminiIsConfidentSafe = allResults.gemini?.url?.verdict === 'AMAN' && geminiConfidence >= 0.75;
+    const geminiIsConfidentDangerous = geminiScore > 70 && geminiConfidence >= 0.70;
+    const geminiKnownBrand = allResults.gemini?.url?.brandRecognition?.isOfficialDomain === true;
 
     if (gap > 40) {
-      finalScore = Math.max(intelScore, geminiScore);
-      gapWarning = 'Dua sistem analisa memberi hasil berbeda. Tetap waspada.';
+      if (geminiIsConfidentSafe || geminiKnownBrand) {
+        // Gemini sangat yakin domain ini aman / brand resmi
+        // Percayai Gemini 75%, intel signals 25%
+        finalScore = (intelScore * 0.25) + (geminiScore * 0.75);
+        gapWarning = null; // Tidak perlu warning — kita sudah yakin
+      } else if (geminiIsConfidentDangerous) {
+        // Gemini sangat yakin domain ini berbahaya
+        // Percayai Gemini 70%, intel signals 30%
+        finalScore = (intelScore * 0.30) + (geminiScore * 0.70);
+        gapWarning = 'Terdeteksi ancaman oleh analisa AI. Berhati-hatilah.';
+      } else {
+        // Tidak ada yang sangat yakin — ambil rata-rata dengan warning
+        finalScore = (intelScore * 0.45) + (geminiScore * 0.55);
+        gapWarning = 'Dua sistem analisa memberi hasil berbeda. Tetap waspada.';
+      }
     } else {
       finalScore = (intelScore * 0.4) + (geminiScore * 0.6);
     }

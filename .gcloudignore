@@ -1,0 +1,39 @@
+# Exclude heavy folders dari upload gcloud builds submit
+# Ini mempercepat upload dari menit ke detik
+
+# Dependencies (dibuild ulang di Cloud Build)
+**/node_modules/
+**/.npm/
+
+# Build artifacts
+**/.next/
+**/dist/
+**/coverage/
+
+# Git
+.git/
+
+# Environment secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# Logs
+**/*.log
+**/npm-debug.log*
+
+# Dataset ML besar (tidak dipakai runtime)
+datasets/PhiUSIIL_Phishing_URL_Dataset.csv
+datasets/Phishing URLs.csv
+datasets/phishing-dataset-variation.csv
+datasets/phishing_hunter/
+datasets/phishurl-list/
+
+# Folder tidak diperlukan container
+.agent/
+scratch/
+design-system/
+bot/
+functions/
+frontend/
+deploy.zip
