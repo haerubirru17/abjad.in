@@ -39,7 +39,7 @@ async function textToSpeech(text) {
   if (!TTS_API_KEY) return null;
 
   // Potong teks agar tidak terlalu panjang (TTS limit 5000 chars)
-  const clampedText = text.slice(0, 1500);
+  const clampedText = text.slice(0, 1000); // Dikurangi ke 1000 chars agar TTS lebih cepat
 
   const body = JSON.stringify({
     input: { text: clampedText },
@@ -144,7 +144,7 @@ router.post('/', async (req, res) => {
     // ── Sanitasi History ─────────────────────────────────────────────────
     // Gemini startChat butuh: alternating user→model, DIMULAI dengan 'user'
     // Filter: buang greeting-only (assistant/model di awal), pastikan valid pairs
-    const rawHistory = (history || []).slice(-10);
+    const rawHistory = (history || []).slice(-6); // Batasi ke 6 entry (dikurangi dari 10) agar Gemini lebih cepat
     
     // Map role dulu
     const mappedHistory = rawHistory.map(h => ({
@@ -183,9 +183,9 @@ router.post('/', async (req, res) => {
 
     const chat = model.startChat({ history: validHistory });
 
-    // Timeout 15 detik untuk Gemini chat
+    // Timeout 10 detik untuk Gemini chat (dikurangi dari 15s)
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('AI Timeout')), 15000)
+      setTimeout(() => reject(new Error('AI Timeout')), 10000)
     );
 
     const result = await Promise.race([
@@ -196,8 +196,13 @@ router.post('/', async (req, res) => {
     const reply = result.response.text().trim();
     console.log(`[ChatRoute] Reply generated (${reply.length} chars)`);
 
-    // Generate audio TTS (non-blocking — jika gagal, tetap kirim teks)
-    const audioBase64 = await textToSpeech(reply);
+    // Generate audio TTS PARALEL — dibatasi 5 detik agar tidak delay respons teks
+    // Jika TTS lambat/gagal, tetap kirim teks tanpa audio (non-blocking)
+    const TTS_TIMEOUT = 5000;
+    const audioBase64 = await Promise.race([
+      textToSpeech(reply),
+      new Promise(resolve => setTimeout(() => resolve(null), TTS_TIMEOUT))
+    ]);
 
     return res.json({
       reply,
