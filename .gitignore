@@ -1,3 +1,6 @@
+# ── Agent internal (jangan di-push ke GitHub) ──────────────────────
+.agent/
+
 # ── Dependencies ──────────────────────────────────────────────────
 node_modules/
 **/node_modules/
