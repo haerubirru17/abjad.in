@@ -27,6 +27,8 @@ interface ScanContext {
 
 interface AbjadChatProps {
   scanContext: ScanContext | null;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -58,9 +60,8 @@ function VoiceWaveform({ isActive }: { isActive: boolean }) {
 // ════════════════════════════════════════════════════════════════
 // Main Component
 // ════════════════════════════════════════════════════════════════
-export default function AbjadChat({ scanContext }: AbjadChatProps) {
+export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatProps) {
   // ── State ──────────────────────────────────────────────────
-  const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -69,6 +70,7 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
   const [voiceMode, setVoiceMode] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('');
   const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [mobileActiveTab, setMobileActiveTab] = useState<'chat' | 'lab'>('chat'); // Tab untuk tampilan mobile
 
   // ── Refs ───────────────────────────────────────────────────
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -488,31 +490,11 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
   };
 
   // ════════════════════════════════════════════════════════════
-  // RENDER — Floating Button
+  // RENDER — Split-Screen Threat Lab Modal
   // ════════════════════════════════════════════════════════════
   return (
     <>
-      {/* ── Floating Action Button ──────────────────────────── */}
-      <AnimatePresence>
-        {!isOpen && (
-          <motion.button
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full bg-primary text-primary-foreground shadow-2xl flex items-center justify-center cursor-pointer group"
-            aria-label="Buka chat AbjadIn"
-          >
-            {/* Pulse ring */}
-            <span className="absolute inset-0 rounded-full bg-primary/30 animate-ping" />
-            <Bot className="w-7 h-7 relative z-10" />
-          </motion.button>
-        )}
-      </AnimatePresence>
-
-      {/* ── Chat Modal ──────────────────────────────────────── */}
+      {/* ── Chat & Cyber Lab Modal ──────────────────────────── */}
       <AnimatePresence>
         {isOpen && (
           <>
@@ -521,36 +503,40 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => { setIsOpen(false); stopListening(); stopAudio(); setVoiceMode(false); }}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50"
+              onClick={() => { onClose(); stopListening(); stopAudio(); setVoiceMode(false); }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-md z-50"
             />
 
-            {/* Modal */}
+            {/* Main Full-screen Split Modal */}
             <motion.div
               initial={{ opacity: 0, y: 60, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 60, scale: 0.95 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed inset-x-4 bottom-4 top-16 sm:inset-auto sm:bottom-6 sm:right-6 sm:top-auto sm:w-[420px] sm:h-[600px] z-50 flex flex-col bg-card rounded-2xl shadow-2xl border border-border/50 overflow-hidden"
+              className="fixed inset-x-4 top-20 bottom-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[92vw] md:max-w-6xl md:h-[85vh] md:max-h-[750px] z-50 flex flex-col bg-card rounded-3xl shadow-2xl border border-border/50 overflow-hidden"
             >
               {/* ── Header ──────────────────────────────────── */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-border/50 bg-primary/5">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-primary/5">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
                     <Bot className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm text-foreground">AbjadIn</h3>
+                    <h3 className="font-extrabold text-sm text-foreground flex items-center gap-2">
+                      AbjadIn Virtual Threat Lab
+                      <span className="hidden md:inline px-2 py-0.5 rounded bg-primary/10 text-[10px] text-primary border border-primary/20 font-bold">EDUKASI</span>
+                    </h3>
                     <p className="text-xs text-muted-foreground">
-                      {isLoading ? 'Mengetik...' : isSpeaking ? 'Berbicara...' : isListening ? 'Mendengarkan...' : 'Asisten Keamanan Digital'}
+                      {isLoading ? 'Mengetik...' : isSpeaking ? 'Berbicara...' : isListening ? 'Mendengarkan...' : 'Ruang Belajar & Konsultasi Keamanan Siber'}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+
+                <div className="flex items-center gap-2">
                   {/* TTS Toggle */}
                   <button
                     onClick={() => { setTtsEnabled(!ttsEnabled); if (isSpeaking) stopAudio(); }}
-                    className="p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                    className="p-2 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
                     title={ttsEnabled ? 'Matikan suara' : 'Nyalakan suara'}
                   >
                     {ttsEnabled
@@ -560,221 +546,438 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
                   </button>
                   {/* Close */}
                   <button
-                    onClick={() => { setIsOpen(false); stopListening(); stopAudio(); setVoiceMode(false); }}
-                    className="p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                    onClick={() => { onClose(); stopListening(); stopAudio(); setVoiceMode(false); }}
+                    className="p-2 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
                   >
-                    <X className="w-4 h-4 text-muted-foreground" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
-              {/* ── Body ────────────────────────────────────── */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                <AnimatePresence mode="wait">
-                  {voiceMode ? (
-                    /* ── Voice Mode View ─────────────────────── */
-                    <motion.div
-                      key="voice"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="flex flex-col items-center justify-center h-full gap-6 py-8"
-                    >
-                      {/* Robot Avatar dengan glow saat aktif */}
-                      <motion.div
-                        animate={isListening || isSpeaking ? {
-                          boxShadow: ['0 0 0px rgba(15,118,110,0.3)', '0 0 30px rgba(15,118,110,0.5)', '0 0 0px rgba(15,118,110,0.3)'],
-                        } : {}}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center"
-                      >
-                        <Bot className="w-12 h-12 text-primary" />
-                      </motion.div>
+              {/* Mobile Tab Swapper (Hanya terlihat di mobile screen) */}
+              <div className="flex md:hidden border-b border-border/50 bg-muted/20 p-2 gap-2">
+                <button
+                  onClick={() => setMobileActiveTab('chat')}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    mobileActiveTab === 'chat' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:bg-muted/50'
+                  }`}
+                >
+                  💬 Chat Asisten AI
+                </button>
+                <button
+                  onClick={() => setMobileActiveTab('lab')}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    mobileActiveTab === 'lab' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:bg-muted/50'
+                  }`}
+                >
+                  💡 Virtual Threat Lab
+                </button>
+              </div>
 
-                      {/* Waveform */}
-                      <VoiceWaveform isActive={isListening || isSpeaking} />
-
-                      {/* Status Text */}
-                      <div className="text-center space-y-1">
-                        {isLoading && (
-                          <p className="text-sm text-muted-foreground flex items-center gap-2">
-                            <Loader2 className="w-4 h-4 animate-spin" /> AbjadIn sedang berpikir...
-                          </p>
-                        )}
-                        {isListening && !isLoading && (
-                          <p className="text-sm text-primary font-medium">Aku mendengarkan...</p>
-                        )}
-                        {isSpeaking && (
-                          <p className="text-sm text-primary font-medium">AbjadIn berbicara...</p>
-                        )}
-                        {!isListening && !isSpeaking && !isLoading && (
-                          <p className="text-sm text-muted-foreground">Tekan mikrofon untuk mulai bicara</p>
-                        )}
-                      </div>
-
-                      {/* Live Transcript */}
-                      {liveTranscript && (
+              {/* ── Main Content Container (Grid Layout) ─────────────────────── */}
+              <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+                
+                {/* ── LEFT PANEL: Chatbot Engine (Klien Konsultasi) ── */}
+                <div className={`w-full md:w-[42%] flex flex-col h-full border-r border-border/50 bg-card ${
+                  mobileActiveTab !== 'chat' ? 'hidden md:flex' : 'flex'
+                }`}>
+                  {/* Body Chat */}
+                  <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                    <AnimatePresence mode="wait">
+                      {voiceMode ? (
+                        /* ── Voice Mode View ─────────────────────── */
                         <motion.div
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="px-4 py-2 rounded-xl bg-muted/50 max-w-[280px]"
+                          key="voice"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="flex flex-col items-center justify-center h-full gap-6 py-6"
                         >
-                          <p className="text-sm text-foreground/70 italic text-center">&quot;{liveTranscript}&quot;</p>
-                        </motion.div>
-                      )}
+                          <motion.div
+                            animate={isListening || isSpeaking ? {
+                              boxShadow: ['0 0 0px rgba(15,118,110,0.3)', '0 0 30px rgba(15,118,110,0.5)', '0 0 0px rgba(15,118,110,0.3)'],
+                            } : {}}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center"
+                          >
+                            <Bot className="w-10 h-10 text-primary" />
+                          </motion.div>
 
-                      {/* Mic Button (large) */}
-                      <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => {
-                          if (isSpeaking) { stopAudio(); return; }
-                          // Bug #1: voice mode harus pakai startVoiceListening (continuous), bukan startListening (single)
-                          if (isListening) { stopListening(); } else { startVoiceListening(); }
-                        }}
-                        disabled={isLoading}
-                        className={`w-16 h-16 rounded-full flex items-center justify-center cursor-pointer transition-all shadow-lg ${
-                          isListening
-                            ? 'bg-destructive text-white animate-pulse'
-                            : isSpeaking
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                        } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      >
-                        {isSpeaking ? <VolumeX className="w-7 h-7" /> : isListening ? <MicOff className="w-7 h-7" /> : <Mic className="w-7 h-7" />}
-                      </motion.button>
-                    </motion.div>
-                  ) : (
-                    /* ── Chat History View ───────────────────── */
-                    <motion.div
-                      key="chat"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="space-y-4"
-                    >
-                      {messages.map((msg, i) => (
-                        <motion.div
-                          key={i}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.05 }}
-                          className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
-                        >
-                          {/* Avatar */}
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            msg.role === 'assistant'
-                              ? 'bg-primary/10 text-primary'
-                              : 'bg-accent text-accent-foreground'
-                          }`}>
-                            {msg.role === 'assistant' ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
-                          </div>
+                          <VoiceWaveform isActive={isListening || isSpeaking} />
 
-                          {/* Bubble */}
-                          <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
-                            msg.role === 'assistant'
-                              ? 'bg-muted/40 text-foreground rounded-tl-sm'
-                              : 'bg-primary text-primary-foreground rounded-tr-sm'
-                          }`}>
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-                            {/* Play audio button */}
-                            {msg.audioUrl && msg.role === 'assistant' && (
-                              <button
-                                onClick={() => playAudio(msg.audioUrl!)}
-                                className="mt-2 flex items-center gap-1.5 text-xs text-primary/70 hover:text-primary cursor-pointer transition-colors"
-                              >
-                                <Volume2 className="w-3.5 h-3.5" /> Putar ulang suara
-                              </button>
+                          <div className="text-center space-y-1">
+                            {isLoading && (
+                              <p className="text-xs text-muted-foreground flex items-center gap-2 justify-center">
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" /> AbjadIn sedang berpikir...
+                              </p>
+                            )}
+                            {isListening && !isLoading && (
+                              <p className="text-xs text-primary font-bold">Mendengarkan suaramu...</p>
+                            )}
+                            {isSpeaking && (
+                              <p className="text-xs text-primary font-bold">AbjadIn sedang berbicara...</p>
+                            )}
+                            {!isListening && !isSpeaking && !isLoading && (
+                              <p className="text-xs text-muted-foreground">Tekan mikrofon untuk mulai bicara</p>
                             )}
                           </div>
+
+                          {liveTranscript && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="px-4 py-2 rounded-xl bg-muted max-w-[280px]"
+                            >
+                              <p className="text-xs text-foreground/70 italic text-center">&quot;{liveTranscript}&quot;</p>
+                            </motion.div>
+                          )}
+
+                          <motion.button
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => {
+                              if (isSpeaking) { stopAudio(); return; }
+                              if (isListening) { stopListening(); } else { startVoiceListening(); }
+                            }}
+                            disabled={isLoading}
+                            className={`w-14 h-14 rounded-full flex items-center justify-center cursor-pointer transition-all shadow-lg ${
+                              isListening
+                                ? 'bg-destructive text-white animate-pulse'
+                                : isSpeaking
+                                ? 'bg-amber-500 text-white'
+                                : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                            } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            {isSpeaking ? <VolumeX className="w-6 h-6" /> : isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                          </motion.button>
                         </motion.div>
-                      ))}
+                      ) : (
+                        /* ── Chat History View ───────────────────── */
+                        <motion.div
+                          key="chat"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="space-y-4"
+                        >
+                          {messages.map((msg, i) => (
+                            <motion.div
+                              key={i}
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.05 }}
+                              className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
+                            >
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                msg.role === 'assistant' ? 'bg-primary/10 text-primary' : 'bg-accent text-accent-foreground'
+                              }`}>
+                                {msg.role === 'assistant' ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                              </div>
 
-                      {/* Loading indicator */}
-                      {isLoading && (
-                        <div className="flex gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                            <Bot className="w-4 h-4 text-primary" />
-                          </div>
-                          <div className="bg-muted/40 rounded-2xl rounded-tl-sm px-4 py-3">
-                            <div className="flex items-center gap-1.5">
-                              <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                              <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                              <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                              <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
+                                msg.role === 'assistant'
+                                  ? 'bg-muted/50 text-foreground rounded-tl-sm'
+                                  : 'bg-primary text-primary-foreground rounded-tr-sm'
+                              }`}>
+                                <p className="text-xs leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                                {msg.audioUrl && msg.role === 'assistant' && (
+                                  <button
+                                    onClick={() => playAudio(msg.audioUrl!)}
+                                    className="mt-2 flex items-center gap-1 text-[10px] text-primary/70 hover:text-primary cursor-pointer transition-colors"
+                                  >
+                                    <Volume2 className="w-3 h-3" /> Putar ulang suara
+                                  </button>
+                                )}
+                              </div>
+                            </motion.div>
+                          ))}
+
+                          {isLoading && (
+                            <div className="flex gap-2.5">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Bot className="w-4 h-4 text-primary" />
+                              </div>
+                              <div className="bg-muted/50 rounded-2xl rounded-tl-sm px-4 py-3">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                  <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                  <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
+                          )}
+                          <div ref={messagesEndRef} />
+                        </motion.div>
                       )}
+                    </AnimatePresence>
+                  </div>
 
-                      <div ref={messagesEndRef} />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                  {/* Input Footer */}
+                  <div className="border-t border-border/50 p-4 bg-muted/10">
+                    <div className="flex items-center gap-2 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => { if (voiceMode) { stopListening(); stopAudio(); } setVoiceMode(false); }}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-bold cursor-pointer transition-all ${
+                          !voiceMode ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        }`}
+                      >
+                        <MessageSquare className="w-3 h-3" /> Chat Teks
+                      </button>
+                      <button
+                        type="button"
+                        onClick={toggleVoiceMode}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-bold cursor-pointer transition-all ${
+                          voiceMode ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        }`}
+                      >
+                        <Mic className="w-3 h-3" /> Chat Suara
+                      </button>
+                    </div>
 
-              {/* ── Footer (Input Area) ─────────────────────── */}
-              <div className="border-t border-border/50 p-3 bg-card">
-                {/* Mode toggle */}
-                <div className="flex items-center gap-2 mb-2">
-                  <button
-                    onClick={() => { if (voiceMode) { stopListening(); stopAudio(); } setVoiceMode(false); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all ${
-                      !voiceMode ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <MessageSquare className="w-3.5 h-3.5" /> Chat
-                  </button>
-                  <button
-                    onClick={toggleVoiceMode}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all ${
-                      voiceMode ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <Mic className="w-3.5 h-3.5" /> Suara
-                  </button>
+                    {!voiceMode && (
+                      <form onSubmit={handleSubmit} className="flex gap-2">
+                        <input
+                          ref={inputRef}
+                          type="text"
+                          value={inputText}
+                          onChange={(e) => setInputText(e.target.value)}
+                          placeholder="Tanyakan hal tentang hasil scan..."
+                          disabled={isLoading}
+                          className="flex-1 px-4 py-2.5 rounded-xl bg-muted/40 border border-border/50 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                          maxLength={500}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => { if (isListening) stopListening(); else startListening(); }}
+                          disabled={isLoading}
+                          className={`p-2.5 rounded-xl cursor-pointer transition-all ${
+                            isListening ? 'bg-destructive text-white animate-pulse' : 'bg-muted/40 text-muted-foreground hover:bg-muted/60'
+                          } disabled:opacity-50`}
+                        >
+                          {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                        </button>
+                        <Button
+                          type="submit"
+                          size="icon"
+                          disabled={isLoading || !inputText.trim()}
+                          className="rounded-xl cursor-pointer"
+                        >
+                          <Send className="w-4 h-4" />
+                        </Button>
+                      </form>
+                    )}
+                  </div>
                 </div>
 
-                {/* Text input (shown in chat mode) */}
-                {!voiceMode && (
-                  <form onSubmit={handleSubmit} className="flex gap-2">
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      value={inputText}
-                      onChange={(e) => setInputText(e.target.value)}
-                      placeholder="Ketik pertanyaanmu..."
-                      disabled={isLoading}
-                      className="flex-1 px-4 py-2.5 rounded-xl bg-muted/30 border border-border/50 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
-                      maxLength={500}
-                    />
-                    {/* Mic button (inline) */}
-                    <button
-                      type="button"
-                      onClick={() => { if (isListening) stopListening(); else startListening(); }}
-                      disabled={isLoading}
-                      className={`p-2.5 rounded-xl cursor-pointer transition-all ${
-                        isListening
-                          ? 'bg-destructive text-white animate-pulse'
-                          : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'
-                      } disabled:opacity-50`}
-                    >
-                      {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                    </button>
-                    {/* Send button */}
-                    <Button
-                      type="submit"
-                      size="icon"
-                      disabled={isLoading || !inputText.trim()}
-                      className="rounded-xl cursor-pointer"
-                    >
-                      <Send className="w-4 h-4" />
-                    </Button>
-                  </form>
-                )}
+                {/* ── RIGHT PANEL: Virtual Threat Lab Sandbox (Edukasi Visual) ── */}
+                <div className={`w-full md:w-[58%] h-full bg-muted/5 overflow-y-auto p-6 border-l border-border/20 ${
+                  mobileActiveTab !== 'lab' ? 'hidden md:block' : 'block'
+                }`}>
+                  <ThreatLabSandbox scanContext={scanContext} />
+                </div>
+
               </div>
             </motion.div>
           </>
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// Component Kanan: ThreatLabSandbox (Visual & Analogi Edukatif)
+// ════════════════════════════════════════════════════════════════
+function ThreatLabSandbox({ scanContext }: { scanContext: ScanContext | null }) {
+  if (!scanContext) return null;
+
+  const { verdict, score, category, explanation, flags = [] } = scanContext;
+
+  const isHomograph = flags.some(f => f.includes('HOMOGRAPH')) || (explanation && explanation.toLowerCase().includes('homograph'));
+  const isGamblingOrLoker = category?.toLowerCase().includes('judi') || category?.toLowerCase().includes('gambling') || flags.some(f => f.includes('ANTI_GAMBLING'));
+  
+  // Case 1: Homograph Attack
+  if (isHomograph) {
+    return (
+      <div className="space-y-6 text-foreground">
+        <div>
+          <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+            Deteksi Heuristik: Homograph Attack
+          </span>
+          <h2 className="text-xl font-black mt-2 text-foreground">🎭 Teknik Spoofing Huruf Kembar</h2>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-3 shadow-sm">
+          <h3 className="font-bold text-xs text-primary flex items-center gap-2">💡 Analogi Sederhana: "Si Kembar Palsu"</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Bayangkan seseorang meniru tanda tangan Anda atau menggunakan topeng yang 100% mirip dengan wajah teman Anda. Secara visual, mata manusia tidak bisa membedakannya. Namun secara identitas hukum, ia adalah orang asing yang ingin mencuri kunci rumah Anda.
+          </p>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-muted/30 border border-border/30 space-y-4">
+          <h3 className="font-bold text-xs text-foreground">🔍 Threat Sandbox: Perbedaan Karakter</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-center">
+              <span className="text-[10px] text-emerald-500 font-bold block mb-1">URL Asli (Latin)</span>
+              <span className="font-mono text-base font-extrabold tracking-wider text-emerald-400">google.com</span>
+              <span className="text-[10px] text-muted-foreground block mt-1">Menggunakan huruf 'o' Latin (Unicode U+006F)</span>
+            </div>
+            <div className="p-3.5 rounded-xl bg-destructive/5 border border-destructive/20 text-center">
+              <span className="text-[10px] text-destructive font-bold block mb-1">URL Palsu (Cyrillic)</span>
+              <span className="font-mono text-base font-extrabold tracking-wider text-destructive">g<span className="text-red-500 underline decoration-wavy font-black">оо</span>gle.com</span>
+              <span className="text-[10px] text-muted-foreground block mt-1">Menggunakan huruf 'о' Cyrillic (Unicode U+043E)</span>
+            </div>
+          </div>
+          <p className="text-[10px] text-muted-foreground italic leading-relaxed">
+            *Komputer membaca kedua alamat di atas sebagai dua server yang 100% berbeda. Peretas memanfaatkan ini agar Anda mengira sedang membuka situs asli Google.
+          </p>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-2 shadow-sm">
+          <h3 className="font-bold text-xs text-amber-500">📜 Cerita Kasus Nyata</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Pada tahun 2017, peneliti menemukan situs web tiruan sempurna dari <strong>apple.com</strong> yang menggunakan huruf Cyrillic 'а' (U+0430) sebagai ganti huruf Latin 'a'. Pengunjung diarahkan ke server peretas tanpa menyadari bahwa bilah alamat di browser mereka sebenarnya mengarah ke situs palsu.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Case 2: Judi Online / Phishing Loker
+  if (isGamblingOrLoker) {
+    return (
+      <div className="space-y-6 text-foreground">
+        <div>
+          <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-500 border border-purple-500/20">
+            Deteksi Konten: Judi Online & Social Engineering
+          </span>
+          <h2 className="text-xl font-black mt-2 text-foreground">🎣 Manipulasi Psikologis (Umpan Cepat)</h2>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-3 shadow-sm">
+          <h3 className="font-bold text-xs text-primary flex items-center gap-2">💡 Analogi Sederhana: "Umpan Pancing Beracun"</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Bagaikan seekor ikan yang melihat cacing gemuk melayang di dalam air. Umpan tersebut tampak sangat lezat dan mudah didapatkan (menjanjikan menang slot instan atau kerja gampang digaji puluhan juta). Begitu umpan tersebut digigit, kait tajam akan melukai Anda, dan Anda akan kehilangan segalanya.
+          </p>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-muted/30 border border-border/30">
+          <h3 className="font-bold text-xs text-foreground mb-4">🔄 Skema Alur Eksploitasi Judi/Loker Palsu</h3>
+          <div className="flex flex-col gap-3 text-center sm:text-left">
+            <div className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/10">
+              <span className="text-[11px] font-bold text-purple-400 block mb-1">1. Umpan Menggiurkan</span>
+              <p className="text-xs text-muted-foreground">Iklan menang mudah, bonus deposit besar, atau info loker palsu via SMS/WA.</p>
+            </div>
+            <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/10">
+              <span className="text-[11px] font-bold text-amber-400 block mb-1">2. Jebakan Halaman</span>
+              <p className="text-xs text-muted-foreground">Situs meminta Anda mentransfer uang deposit awal atau mengunggah foto KTP.</p>
+            </div>
+            <div className="p-3 rounded-xl bg-destructive/5 border border-destructive/10">
+              <span className="text-[11px] font-bold text-red-400 block mb-1">3. Kerugian Finansial</span>
+              <p className="text-xs text-muted-foreground">Uang Anda dibawa lari, saldo rekening dikuras, atau data identitas Anda disalahgunakan.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-2 shadow-sm">
+          <h3 className="font-bold text-xs text-purple-500">📜 Cerita Kasus Nyata</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Peretas judi online sering meretas sub-domain instansi pemerintah (.go.id) atau lembaga pendidikan (.sch.id) untuk menanam situs slot mereka. Hal ini dilakukan guna menipu mesin pencari Google agar situs judi tersebut terlihat sah dan memiliki reputasi tinggi secara otomatis.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Case 3: Generic threat
+  if (verdict === 'MALICIOUS' || verdict === 'SUSPICIOUS') {
+    return (
+      <div className="space-y-6 text-foreground">
+        <div>
+          <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-destructive/10 text-destructive border border-destructive/20 animate-pulse">
+            Sinyal Bahaya: Phishing & Pencurian Kunci
+          </span>
+          <h2 className="text-xl font-black mt-2 text-foreground">🏠 Replika Rumah Palsu (Phishing)</h2>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-3 shadow-sm">
+          <h3 className="font-bold text-xs text-primary flex items-center gap-2">💡 Analogi Sederhana: "Replika Pintu Depan"</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Bayangkan seseorang membangun replika pintu depan rumah Anda yang sangat mirip di pinggir jalan umum. Ketika Anda mencoba memasukkan kunci fisik (kata sandi/username), kunci tersebut disalin secara diam-diam oleh peretas di balik pintu, lalu mereka menyalahgunakannya untuk membobol rumah asli Anda.
+          </p>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-muted/30 border border-border/30 space-y-3">
+          <h3 className="font-bold text-xs text-foreground">🚨 Check-list Hasil Deteksi Berlapis:</h3>
+          <div className="space-y-2">
+            <div className="flex items-start gap-2.5 text-xs text-muted-foreground">
+              <span className="text-destructive font-black text-sm">✕</span>
+              <span><strong>Usia Domain Sangat Baru:</strong> Situs ini baru terdaftar dalam beberapa hari terakhir (pola umum pembuat penipuan cepat).</span>
+            </div>
+            <div className="flex items-start gap-2.5 text-xs text-muted-foreground">
+              <span className="text-destructive font-black text-sm">✕</span>
+              <span><strong>Visual Tiru-Tiruan:</strong> Kode halaman mencoba meniru layout brand perbankan/sosmed resmi secara paksa untuk menipu mata Anda.</span>
+            </div>
+            <div className="flex items-start gap-2.5 text-xs text-muted-foreground">
+              <span className="text-destructive font-black text-sm">✕</span>
+              <span><strong>Reputasi Buruk:</strong> Algoritma deteksi reputasi mendeteksi tidak adanya otentikasi e-mail atau sertifikat kepemilikan yang valid.</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-2 shadow-sm">
+          <h3 className="font-bold text-xs text-destructive">🛡️ Cara Menghindar:</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Selalu periksa domain utama di address bar. Perusahaan perbankan resmi atau layanan sosial besar tidak akan pernah menggunakan e-mail gratisan (seperti Gmail/Yahoo) atau meminta Anda mengonfirmasi kata sandi/OTP melalui halaman chat web tidak resmi.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Case 4: SAFE
+  return (
+    <div className="space-y-6 text-foreground">
+      <div>
+        <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+          Diagnosa Selesai: Sistem Aman
+        </span>
+        <h2 className="text-xl font-black mt-2 text-foreground">🛡️ Pintu Gerbang Pemeriksaan Berlapis</h2>
+      </div>
+
+      <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-3 shadow-sm">
+        <h3 className="font-bold text-xs text-emerald-500 flex items-center gap-2">💡 Analogi Sederhana: "Sistem Keamanan Bandara"</h3>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Link ini diibaratkan seperti seorang pelancong di bandara yang telah lolos dari pemeriksaan bagasi X-Ray berlapis, verifikasi paspor resmi di imigrasi, dan detektor logam canggih. Tidak ditemukan zat berbahaya maupun identitas palsu pada dirinya.
+        </p>
+      </div>
+
+      <div className="p-4 rounded-2xl bg-muted/30 border border-border/30 space-y-3">
+        <h3 className="font-bold text-xs text-foreground">✅ Protokol Keamanan Abjad.in yang Telah Dilewati:</h3>
+        <div className="space-y-2.5">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="text-emerald-500 font-bold">✓</span>
+            <span>Domain lolos dari verifikasi blacklist lokal (TrustPositif Kominfo & Database Keamanan).</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="text-emerald-500 font-bold">✓</span>
+            <span>Algoritma Machine Learning (ONNX) mengonfirmasi tidak adanya pola ejaan homograph mencurigakan.</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="text-emerald-500 font-bold">✓</span>
+            <span>Struktur sertifikasi SSL/HTTPS terverifikasi diterbitkan oleh lembaga resmi yang valid.</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-2 shadow-sm">
+        <h3 className="font-bold text-xs text-emerald-500">💡 Tips Literasi Keamanan Harian:</h3>
+        <ul className="list-disc pl-5 text-xs text-muted-foreground space-y-1">
+          <li>Selalu aktifkan Autentikasi Dua Faktor (2FA) di setiap akun media sosial dan perbankan Anda.</li>
+          <li>Gunakan pengelola kata sandi (Password Manager) untuk membuat sandi yang kuat dan unik di setiap situs.</li>
+          <li>Jangan pernah menggunakan kembali satu kata sandi yang sama untuk beberapa situs sekaligus.</li>
+        </ul>
+      </div>
+    </div>
   );
 }

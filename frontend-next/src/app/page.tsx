@@ -30,6 +30,7 @@ export default function Home() {
   const [result, setResult] = useState<VerdictResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const handleAnalyze = async (payload: AnalyzePayload) => {
     setIsLoading(true);
@@ -126,11 +127,25 @@ export default function Home() {
 
           {/* Actual Result Card */}
           {result && !isLoading && (
-            <VerdictCard
-              isLoading={isLoading}
-              result={result}
-              onReset={handleReset}
-            />
+            <div className="space-y-8 max-w-4xl mx-auto">
+              <VerdictCard
+                isLoading={isLoading}
+                result={result}
+                onReset={handleReset}
+              />
+              <div className="flex justify-center pb-8">
+                <button
+                  onClick={() => setIsChatOpen(true)}
+                  className="relative group overflow-hidden px-8 py-5 rounded-2xl bg-gradient-to-r from-primary to-emerald-600 text-white font-extrabold text-lg shadow-2xl hover:shadow-primary/30 transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center gap-3 cursor-pointer select-none"
+                >
+                  <span className="flex h-3 w-3 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-300 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-teal-400"></span>
+                  </span>
+                  💡 Bedah Kasus & Belajar dengan AI AbjadIn
+                </button>
+              </div>
+            </div>
           )}
         </div>
 
@@ -148,6 +163,8 @@ export default function Home() {
       {/* AbjadIn Voice Chat — hanya muncul secara kontekstual setelah hasil scan tersedia */}
       {result && (
         <AbjadChat
+          isOpen={isChatOpen}
+          onClose={() => setIsChatOpen(false)}
           scanContext={{
             verdict: result.finalVerdict,
             score: result.confidenceScore,
