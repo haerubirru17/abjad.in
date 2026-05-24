@@ -59,45 +59,59 @@ const ENGINES = [
 
 export default function WorkflowDiagram({ isScanning = false }: { isScanning?: boolean }) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasStarted = useRef(false);
 
   useEffect(() => {
     if (isScanning) {
+      // Bersihkan interval lama sebelum memulai yang baru (penting saat scan ulang!)
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
       hasStarted.current = true;
-      runCycle();
+      setActiveIndex(0); // Reset ke awal agar selalu mulai dari langkah pertama
+
+      let currentStep = 0;
+      // Maju satu per satu, berhenti di langkah terakhir-1 (sebelum Verdict)
+      // agar tidak menampilkan "Verdict" sebelum hasil benar-benar ada
+      intervalRef.current = setInterval(() => {
+        currentStep++;
+        if (currentStep < ENGINES.length - 1) {
+          setActiveIndex(currentStep);
+        } else {
+          // Sudah di langkah terakhir — berhenti, jangan loop
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
+          setActiveIndex(ENGINES.length - 2); // Tetap tampilkan Gemini AI (langkah sebelum Verdict)
+        }
+      }, 1800);
+
     } else {
+      // Scan selesai — bersihkan interval dan tampilkan Verdict sebentar
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
       if (hasStarted.current) {
-        // Fast forward to verdict then finish
-        setActiveIndex(ENGINES.length - 1);
+        setActiveIndex(ENGINES.length - 1); // Tampilkan "Verdict Engine"
         setTimeout(() => {
           hasStarted.current = false;
           setActiveIndex(0);
-        }, 1000);
+        }, 1200);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isScanning]);
 
-  function runCycle() {
-    if (!hasStarted.current) return;
-    
-    // Auto cycle through the steps every 1.5s
-    let currentStep = 0;
-    const interval = setInterval(() => {
-      if (!hasStarted.current) {
-        clearInterval(interval);
-        return;
+    // Cleanup saat komponen unmount
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
-      currentStep++;
-      if (currentStep < ENGINES.length - 1) { // stop before verdict
-        setActiveIndex(currentStep);
-      } else {
-        // Just loop the middle engines if still scanning
-        currentStep = 0;
-        setActiveIndex(0);
-      }
-    }, 2000);
-  }
+    };
+  }, [isScanning]);
 
   // If not scanning and not recently started, we can just render nothing 
   // since page.tsx hides it anyway, but we return a sleek idle state just in case.
