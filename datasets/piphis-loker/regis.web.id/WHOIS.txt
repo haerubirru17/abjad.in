@@ -1,0 +1,21 @@
+Domain ID: PANDI-DO13075727
+Domain Name: regis.web.id
+Created On: 2025-02-27 17:42:39
+Last Updated On: 2025-02-28 05:12:41 
+Expiration Date: 2026-02-27 23:59:59 
+Status: serverTransferProhibited
+Status: clientTransferProhibited
+
+====================================================
+Sponsoring Registrar Organization: PT Registrasi Neva Angkasa
+Sponsoring Registrar URL: www.rna.id
+Sponsoring Registrar Street: Gedung Cyber 2 Tower 18th Floor  
+Sponsoring Registrar City: Jakarta Selatan
+Sponsoring Registrar State/Province: Jakarta
+Sponsoring Registrar Postal Code: 12120
+Sponsoring Registrar Country: ID
+Sponsoring Registrar Phone: 02742250146
+Sponsoring Registrar Email: admin@rna.id
+Name Server: ns1.domainesia.net
+Name Server: ns2.domainesia.net
+DNSSEC: Unsigned

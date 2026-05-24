@@ -1,0 +1,21 @@
+Domain ID: PANDI-DO13319217
+Domain Name: now-here.web.id
+Created On: 2025-03-15 14:22:20
+Last Updated On: 2025-03-15 21:43:35 
+Expiration Date: 2026-03-15 23:59:59 
+Status: addPeriod
+Status: serverTransferProhibited
+
+====================================================
+Sponsoring Registrar Organization: PT Cloud Hosting Indonesia
+Sponsoring Registrar URL: https://idcloudhost.co.id
+Sponsoring Registrar Street: Sentral Senayan 2 lt. 16  
+Sponsoring Registrar City: Jakarta Pusat
+Sponsoring Registrar State/Province: DKI Jakarta
+Sponsoring Registrar Postal Code: 10270
+Sponsoring Registrar Country: ID
+Sponsoring Registrar Phone: 02140000995
+Sponsoring Registrar Email: care@idcloudhost.co.id
+Name Server: ariella.ns.cloudflare.com
+Name Server: noah.ns.cloudflare.com
+DNSSEC: Unsigned

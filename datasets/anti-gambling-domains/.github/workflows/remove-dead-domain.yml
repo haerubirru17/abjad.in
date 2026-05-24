@@ -1,0 +1,49 @@
+name: Remove dead domains
+
+on:
+  workflow_dispatch:
+# Every Saturday at 03:00 UTC or 10:00 at GMT+7
+  schedule:
+   - cron: "0 3 * * 6"
+  push:
+    paths:
+      - .github/workflows/remove-dead-domain.yml
+
+permissions:
+  contents: write
+  
+jobs:
+
+  remove-dead-domains:
+
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v6
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.12"
+    - name: Install PyFunceble
+      run: |
+        python3 -m pip install --upgrade pip
+        pip3 install --user pyfunceble[full]
+    - name: Check and remove dead domains, then sort with fop.py
+      run: |
+        pyfunceble -f domains.txt >> pyfunceble-output.txt
+        rm -r output
+        grep -i "INACTIVE" pyfunceble-output.txt | awk '{print $1}' > dead.txt
+        grep -i "WHOIS" pyfunceble-output.txt | awk '{print $1}' > pre-dead.txt
+        grep -v -f dead.txt domains.txt > temp.txt && mv temp.txt domains.txt
+        grep -v -f pre-dead.txt domains.txt > domains-activeonly.txt
+        python3 scripts/fop.py
+    - name: Commit and push changes
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add .
+        git commit -m "Remove dead domains"
+        git push
+      continue-on-error: true
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

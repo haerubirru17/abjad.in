@@ -13,15 +13,19 @@ test-results/
 
 # ── Environment (RAHASIA - jangan pernah commit!) ─────────────────
 .env
-.env.local
-.env.production
-backend/.env
+.env*
+**/.env*
+*gcp-key.json
+*-credentials.json
 
 # ── Log & debug files ─────────────────────────────────────────────
 *.log
 npm-debug.log*
 backend_err.txt
 backend_log.txt
+scratch/
+stress_test_links.txt
+gcloud
 
 # ── File besar yang tidak perlu di GitHub ─────────────────────────
 deploy.zip
@@ -34,8 +38,25 @@ datasets/Phishing URLs.csv
 datasets/phishing-dataset-variation.csv
 datasets/phishing_hunter/
 
+# TrustPositif: Abaikan file besar (~80-100MB), hanya commit file kecil yang dipakai aplikasi
+datasets/TrustPositif-archive1/*
+!datasets/TrustPositif-archive1/fake-onlydomains.txt
+!datasets/TrustPositif-archive1/fakenews-gambling-only.txt
+!datasets/TrustPositif-archive1/doh-onlydomains.txt
+!datasets/TrustPositif-archive1/anti.piracy-onlydomains.txt
+!datasets/TrustPositif-archive1/d3host.txt
+!datasets/TrustPositif-archive1/whitelist.txt
+!datasets/TrustPositif-archive1/README.md
+!datasets/TrustPositif-archive1/LICENSE
+
 # ── OS & Editor ───────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 .vscode/settings.json
 *.swp
+
+# ── Python ─────────────────────────────────────────────────────────
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
