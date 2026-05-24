@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ShieldCheck, Github } from 'lucide-react';
+import { ShieldCheck, ExternalLink } from 'lucide-react';
 
 export default function Header() {
   return (
@@ -18,7 +18,7 @@ export default function Header() {
         <div className="flex items-center gap-4">
           <Link href="https://github.com/haerubirru17/abjad.in" target="_blank" rel="noopener noreferrer">
             <Button variant="ghost" className="gap-2 text-foreground/70 hover:text-primary hover:bg-primary/10 font-semibold">
-              <Github className="w-4 h-4" />
+              <ExternalLink className="w-4 h-4" />
               <span className="hidden sm:inline">Source Code</span>
             </Button>
           </Link>
