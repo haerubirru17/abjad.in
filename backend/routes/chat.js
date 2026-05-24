@@ -45,8 +45,8 @@ async function textToSpeech(text) {
     input: { text: clampedText },
     voice: {
       languageCode: 'id-ID',
-      name: 'id-ID-Wavenet-A', // Suara perempuan Indonesia yang lebih natural dan kasual
-      ssmlGender: 'FEMALE'
+      name: 'id-ID-Wavenet-B', // Suara laki-laki Indonesia yang lebih natural dan kasual
+      ssmlGender: 'MALE'
     },
     audioConfig: {
       audioEncoding: 'MP3',
