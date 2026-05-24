@@ -367,7 +367,9 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
 
     recognition.onerror = (e: any) => {
       console.error('Speech Recognition Error:', e.error);
-      if (e.error === 'no-speech') return; // Bukan error fatal (hening saja)
+      // Error non-fatal: abaikan tanpa menampilkan pesan ke user
+      if (e.error === 'no-speech') return;   // Hening saja, bukan error
+      if (e.error === 'aborted') return;     // Dipicu oleh recognition.abort() kita sendiri — bukan error
 
       // KHUSUS ERROR JARINGAN: Coba sambung kembali secara otomatis hingga 3 kali
       if (e.error === 'network') {
