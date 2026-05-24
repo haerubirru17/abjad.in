@@ -363,14 +363,17 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
     };
 
     recognition.onend = () => {
-      // Bug #2: jangan restart jika sedang submit — tunggu selesai dulu
+      // PENTING: Jangan panggil recognition.start() di sini!
+      // Instance yang sudah onend tidak bisa di-restart di Chrome — akan langsung
+      // fire onend lagi tanpa onstart, menyebabkan loop mic on/off tak terbatas.
+      // Solusi: selalu buat instance BARU via startVoiceListeningRef.current()
+      setIsListening(false);
       if (voiceModeRef.current && !isLoadingRef.current && !isSubmittingRef.current) {
-        // Bug #2: cooldown 800ms sebelum restart untuk mencegah menangkap ambient noise
         setTimeout(() => {
-          try { recognition.start(); } catch { /* sudah running */ }
-        }, 800);
-      } else {
-        setIsListening(false);
+          if (voiceModeRef.current) {
+            startVoiceListeningRef.current(); // Fresh instance, bukan restart instance lama
+          }
+        }, 1000); // 1 detik cooldown sebelum listen lagi
       }
     };
 
