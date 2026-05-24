@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Github } from 'lucide-react';
 
 export default function Header() {
   return (
@@ -13,13 +13,18 @@ export default function Header() {
         <nav className="hidden md:flex gap-8">
           <Link href="#fitur" className="text-sm font-semibold text-foreground/80 hover:text-primary transition-colors">Fitur</Link>
           <Link href="#tentang" className="text-sm font-semibold text-foreground/80 hover:text-primary transition-colors">Tentang</Link>
-          <Link href="#api" className="text-sm font-semibold text-foreground/80 hover:text-primary transition-colors">API & Integrasi</Link>
+          <Link href="#teknologi" className="text-sm font-semibold text-foreground/80 hover:text-primary transition-colors">Teknologi</Link>
         </nav>
         <div className="flex items-center gap-4">
-          <Button variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10 font-semibold">Masuk</Button>
-          <Button className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shadow-md">Daftar</Button>
+          <Link href="https://github.com/haerubirru17/abjad.in" target="_blank" rel="noopener noreferrer">
+            <Button variant="ghost" className="gap-2 text-foreground/70 hover:text-primary hover:bg-primary/10 font-semibold">
+              <Github className="w-4 h-4" />
+              <span className="hidden sm:inline">Source Code</span>
+            </Button>
+          </Link>
         </div>
       </div>
     </header>
   );
 }
+
