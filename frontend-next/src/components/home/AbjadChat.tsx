@@ -415,7 +415,7 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
 
     recognitionRef.current = recognition;
     recognition.start();
-  }, [createRecognition, sendMessage]);
+  }, [createRecognition]); // sendMessage tidak perlu di sini — sudah pakai sendMessageRef.current
 
   // Sync ref agar speakBrowser bisa memanggil startVoiceListening terbaru
   useEffect(() => {
@@ -472,12 +472,17 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
   // ── Toggle Voice Mode ─────────────────────────────────────
   const toggleVoiceMode = () => {
     if (voiceMode) {
-      stopListening();
+      // Matikan voice mode: stop semua aktivitas
+      stopListening();    // stopListening sudah set voiceModeRef.current = false
       stopAudio();
       setVoiceMode(false);
     } else {
+      // Aktifkan voice mode: set ref SEBELUM mulai agar onend tidak salah baca state
+      voiceModeRef.current = true;
       setVoiceMode(true);
-      setTimeout(() => startVoiceListening(), 300); // beri waktu state update
+      hasFatalErrorRef.current = false;    // Reset error state
+      networkErrorCountRef.current = 0;   // Reset retry counter
+      setTimeout(() => startVoiceListeningRef.current(), 300); // pakai ref, bukan closure lama
     }
   };
 

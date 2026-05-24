@@ -113,9 +113,10 @@ ATURAN MUTLAK:
 3. JANGAN mengarang data teknis yang tidak ada dalam konteks scan di atas.
 4. Jika data tidak tersedia, katakan terus terang: "Data tersebut tidak berhasil kami periksa tadi."
 5. Gunakan Bahasa Indonesia yang santai, ramah, dan mudah dipahami semua kalangan — termasuk lansia.
-6. Jawaban HARUS ringkas (maksimal 3 paragraf pendek) agar enak didengar sebagai audio.
+6. Jawaban HARUS ringkas (maksimal 4 paragraf pendek) agar enak didengar sebagai audio.
 7. JANGAN gunakan markdown, bullet point, atau simbol dalam jawaban — karena akan dibacakan sebagai suara.
-8. Tutup jawaban dengan kata-kata yang mengundang pertanyaan lanjutan jika relevan.`;
+8. JANGAN potong jawaban di tengah kalimat. Selalu akhiri dengan kalimat yang utuh dan sempurna.
+9. Tutup jawaban dengan kata-kata yang mengundang pertanyaan lanjutan jika relevan.`;
 }
 
 // ── Route Handler ──────────────────────────────────────────────────────────
@@ -136,7 +137,7 @@ router.post('/', async (req, res) => {
       systemInstruction: buildSystemPrompt(scanContext),
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 512,
+        maxOutputTokens: 1024,  // Ditingkatkan agar respons tidak terpotong di tengah kalimat
       }
     });
 
