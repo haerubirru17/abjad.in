@@ -85,6 +85,7 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
   const isLoadingRef = useRef(false);
   const ttsEnabledRef = useRef(true);
   const hasFatalErrorRef = useRef(false);                              // Melacak error fatal agar tidak loop mic
+  const networkErrorCountRef = useRef(0);                              // Melacak jumlah error jaringan berturut-turut
   const startVoiceListeningRef = useRef<() => void>(() => {});
   const sendMessageRef = useRef<(text: string) => void>(() => {});     // Bug #1: anti stale-closure
 
@@ -306,7 +307,11 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
     accumulatedTextRef.current = '';
     hasFatalErrorRef.current = false; // Reset status error fatal setiap mulai
 
-    recognition.onstart = () => setIsListening(true);
+    recognition.onstart = () => {
+      setIsListening(true);
+      // Reset error jaringan jika berhasil terhubung dan mulai mendengarkan
+      networkErrorCountRef.current = 0;
+    };
 
     recognition.onresult = (event: any) => {
       // Bug #2: abaikan hasil jika sedang memproses request sebelumnya
@@ -362,6 +367,16 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
       console.error('Speech Recognition Error:', e.error);
       if (e.error === 'no-speech') return; // Bukan error fatal (hening saja)
 
+      // KHUSUS ERROR JARINGAN: Coba sambung kembali secara otomatis hingga 3 kali
+      if (e.error === 'network') {
+        networkErrorCountRef.current += 1;
+        if (networkErrorCountRef.current <= 3) {
+          console.warn(`Speech recognition network error. Mencoba kembali (${networkErrorCountRef.current}/3)...`);
+          // Biarkan onend yang melakukan restart secara normal, jangan matikan voiceMode
+          return;
+        }
+      }
+
       hasFatalErrorRef.current = true; // Tandai terjadi error fatal
       setIsListening(false);
       setLiveTranscript('');
@@ -373,7 +388,7 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
       } else if (e.error === 'audio-capture') {
         errMsg = 'Mikrofon tidak terdeteksi. Pastikan perangkat mikrofon Anda sudah terhubung.';
       } else if (e.error === 'network') {
-        errMsg = 'Koneksi jaringan bermasalah saat menggunakan asisten suara.';
+        errMsg = 'Layanan pengenalan suara Google tidak merespon. Jika Anda menggunakan browser Brave, Opera, atau Vivaldi, browser tersebut memblokir fitur ini secara bawaan untuk privasi. Disarankan menggunakan Google Chrome standar, Microsoft Edge, atau menonaktifkan VPN/AdBlocker yang memblokir Google APIs.';
       }
 
       setMessages(prev => [...prev, {
@@ -386,11 +401,13 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
       setIsListening(false);
       // Hanya restart jika: voice mode aktif, tidak loading, tidak submit, & TIDAK ada error fatal
       if (voiceModeRef.current && !isLoadingRef.current && !isSubmittingRef.current && !hasFatalErrorRef.current) {
+        // Berikan delay restart yang sedikit lebih panjang untuk error jaringan agar server tidak overload
+        const restartDelay = networkErrorCountRef.current > 0 ? 2000 : 1000;
         setTimeout(() => {
           if (voiceModeRef.current && !hasFatalErrorRef.current) {
             startVoiceListeningRef.current(); // Fresh instance
           }
-        }, 1000); // 1 detik cooldown
+        }, restartDelay);
       }
     };
 
