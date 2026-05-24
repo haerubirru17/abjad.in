@@ -145,16 +145,18 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* AbjadIn Voice Chat — muncul setelah hasil scan tersedia */}
-      <AbjadChat
-        scanContext={result ? {
-          verdict: result.finalVerdict,
-          score: result.confidenceScore,
-          category: result.categories.join(', '),
-          explanation: result.aiInsights,
-          flags: result.technicalFlags,
-        } : null}
-      />
+      {/* AbjadIn Voice Chat — hanya muncul secara kontekstual setelah hasil scan tersedia */}
+      {result && (
+        <AbjadChat
+          scanContext={{
+            verdict: result.finalVerdict,
+            score: result.confidenceScore,
+            category: result.categories.join(', '),
+            explanation: result.aiInsights,
+            flags: result.technicalFlags,
+          }}
+        />
+      )}
     </div>
   );
 }
