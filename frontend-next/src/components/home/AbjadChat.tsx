@@ -84,6 +84,7 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
   const voiceModeRef = useRef(false);
   const isLoadingRef = useRef(false);
   const ttsEnabledRef = useRef(true);
+  const hasFatalErrorRef = useRef(false);                              // Melacak error fatal agar tidak loop mic
   const startVoiceListeningRef = useRef<() => void>(() => {});
   const sendMessageRef = useRef<(text: string) => void>(() => {});     // Bug #1: anti stale-closure
 
@@ -303,6 +304,7 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
     recognition.interimResults = true;
 
     accumulatedTextRef.current = '';
+    hasFatalErrorRef.current = false; // Reset status error fatal setiap mulai
 
     recognition.onstart = () => setIsListening(true);
 
@@ -357,23 +359,38 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
     };
 
     recognition.onerror = (e: any) => {
-      if (e.error === 'no-speech') return; // bukan error fatal
+      console.error('Speech Recognition Error:', e.error);
+      if (e.error === 'no-speech') return; // Bukan error fatal (hening saja)
+
+      hasFatalErrorRef.current = true; // Tandai terjadi error fatal
       setIsListening(false);
       setLiveTranscript('');
+      setVoiceMode(false);
+      
+      let errMsg = 'Terjadi kesalahan pada mikrofon.';
+      if (e.error === 'not-allowed') {
+        errMsg = 'Izin mikrofon ditolak. Harap aktifkan izin akses mikrofon di browser Anda untuk berbicara.';
+      } else if (e.error === 'audio-capture') {
+        errMsg = 'Mikrofon tidak terdeteksi. Pastikan perangkat mikrofon Anda sudah terhubung.';
+      } else if (e.error === 'network') {
+        errMsg = 'Koneksi jaringan bermasalah saat menggunakan asisten suara.';
+      }
+
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        text: `⚠️ Fitur Suara Berhenti: ${errMsg}`
+      }]);
     };
 
     recognition.onend = () => {
-      // PENTING: Jangan panggil recognition.start() di sini!
-      // Instance yang sudah onend tidak bisa di-restart di Chrome — akan langsung
-      // fire onend lagi tanpa onstart, menyebabkan loop mic on/off tak terbatas.
-      // Solusi: selalu buat instance BARU via startVoiceListeningRef.current()
       setIsListening(false);
-      if (voiceModeRef.current && !isLoadingRef.current && !isSubmittingRef.current) {
+      // Hanya restart jika: voice mode aktif, tidak loading, tidak submit, & TIDAK ada error fatal
+      if (voiceModeRef.current && !isLoadingRef.current && !isSubmittingRef.current && !hasFatalErrorRef.current) {
         setTimeout(() => {
-          if (voiceModeRef.current) {
-            startVoiceListeningRef.current(); // Fresh instance, bukan restart instance lama
+          if (voiceModeRef.current && !hasFatalErrorRef.current) {
+            startVoiceListeningRef.current(); // Fresh instance
           }
-        }, 1000); // 1 detik cooldown sebelum listen lagi
+        }, 1000); // 1 detik cooldown
       }
     };
 
@@ -422,6 +439,7 @@ export default function AbjadChat({ scanContext }: AbjadChatProps) {
   }, [createRecognition]);
 
   const stopListening = useCallback(() => {
+    voiceModeRef.current = false; // Sync ref langsung untuk cegah restart async
     if (vadTimerRef.current) { clearTimeout(vadTimerRef.current); vadTimerRef.current = null; }
     accumulatedTextRef.current = '';
     if (recognitionRef.current) {
