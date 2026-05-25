@@ -9,7 +9,7 @@
 const { parse } = require('tldts');
 const fetch = require('node-fetch');
 const https = require('https');
-const whitelist = require('../data/whitelist.json');
+
 
 // TLD yang sering digunakan untuk phishing/scam
 const SUSPICIOUS_TLDS = [
@@ -54,17 +54,7 @@ function extractRootDomain(hostname) {
   };
 }
 
-// ============================================================
-// SUB-FUNGSI 2: checkWhitelist
-// ============================================================
-function checkWhitelist(rootDomain) {
-  // Cek SAMA PERSIS — bukan url.includes()
-  const isWhitelisted = whitelist.includes(rootDomain);
-  return {
-    isWhitelisted,
-    scoreModifier: isWhitelisted ? -20 : 0
-  };
-}
+
 
 // ============================================================
 // SUB-FUNGSI 3: checkTyposquatting (Levenshtein distance)
@@ -402,11 +392,7 @@ async function analyzeDomain(url) {
   // SUB 1: Extract root domain
   const domainInfo = extractRootDomain(hostname);
 
-  // SUB 2: Check whitelist
-  const whitelistResult = checkWhitelist(domainInfo.domain);
-  if (whitelistResult.isWhitelisted) {
-    flags.push('WHITELISTED');
-  }
+
 
   // SUB 3: Check typosquatting
   const typoResult = checkTyposquatting(domainInfo.domain);
@@ -447,8 +433,7 @@ async function analyzeDomain(url) {
     totalScore += sslResult.score;
   }
 
-  // Terapkan whitelist modifier
-  totalScore += whitelistResult.scoreModifier;
+
 
   // Cap pada 0-100
   totalScore = Math.max(0, Math.min(totalScore, 100));
@@ -456,8 +441,8 @@ async function analyzeDomain(url) {
   return {
     rootDomain: domainInfo.domain,
     subdomain: domainInfo.subdomain,
-    isWhitelisted: whitelistResult.isWhitelisted,
-    whitelistModifier: whitelistResult.scoreModifier,
+    isWhitelisted: false,
+    whitelistModifier: 0,
     isTyposquatting: typoResult.isTyposquatting,
     similarTo: typoResult.similarTo,
     isSuspiciousTLD: tldResult.isSuspicious,
@@ -484,7 +469,6 @@ async function analyzeDomain(url) {
 module.exports = {
   analyzeDomain,
   extractRootDomain,
-  checkWhitelist,
   checkTyposquatting,
   checkSuspiciousTLD,
   checkURLStructure,

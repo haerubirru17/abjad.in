@@ -244,38 +244,35 @@ function checkLocalBlacklist(finalUrl) {
     } catch (e2) { /* skip */ }
   }
 
-  // Jika domain whitelisted, abaikan blacklist lokal sepenuhnya untuk domain/URL tersebut
-  if (hostname && isDomainWhitelisted(hostname)) {
-    return { localBlacklist: false, checkTimeMs: Date.now() - startTime };
-  }
-
-  // 1. Cek exact URL match
+  // 1. Cek exact URL match (selalu cek, bahkan untuk domain populer - Zero-Trust!)
   const normalizedUrl = finalUrl.toLowerCase();
   if (blacklistedUrls.has(normalizedUrl)) {
     matchType = 'EXACT_URL';
     matchSource = 'JPCERT/CC Phish URL';
   }
 
-  // 2. Cek domain match
-  if (!matchType) {
-
-    if (hostname && blacklistedDomains.has(hostname)) {
-      matchType = 'DOMAIN_MATCH';
-      // Tentukan sumber berdasarkan pola domain
-      if (hostname.includes('.web.id')) {
-        matchSource = 'Piphis-Loker (Phishing Loker Palsu)';
-      } else {
-        matchSource = 'Local Blacklist Database';
-      }
-    }
-
-    // 3. Cek subdomain match — jika hostname adalah subdomain dari domain yang diblokir
-    if (!matchType && hostname) {
-      for (const blockedDomain of blacklistedDomains) {
-        if (hostname !== blockedDomain && hostname.endsWith('.' + blockedDomain)) {
-          matchType = 'SUBDOMAIN_MATCH';
+  // 2. Cek domain/subdomain match (dilewati jika domain whitelisted untuk cegah FP massal)
+  if (!matchType && hostname) {
+    const isWhitelisted = isDomainWhitelisted(hostname);
+    if (!isWhitelisted) {
+      if (blacklistedDomains.has(hostname)) {
+        matchType = 'DOMAIN_MATCH';
+        // Tentukan sumber berdasarkan pola domain
+        if (hostname.includes('.web.id')) {
+          matchSource = 'Piphis-Loker (Phishing Loker Palsu)';
+        } else {
           matchSource = 'Local Blacklist Database';
-          break;
+        }
+      }
+
+      // 3. Cek subdomain match — jika hostname adalah subdomain dari domain yang diblokir
+      if (!matchType) {
+        for (const blockedDomain of blacklistedDomains) {
+          if (hostname !== blockedDomain && hostname.endsWith('.' + blockedDomain)) {
+            matchType = 'SUBDOMAIN_MATCH';
+            matchSource = 'Local Blacklist Database';
+            break;
+          }
         }
       }
     }

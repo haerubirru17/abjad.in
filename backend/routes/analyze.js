@@ -221,32 +221,21 @@ router.post('/', async (req, res) => {
     // ⚡ FASE 0 — EARLY EXIT (< 10ms, tanpa network)
     // ===================================================
     // Cek Local Blacklist (in-memory Set, instan)
-    let isWhitelisted = false;
     if (targetUrl) {
-      // Cek apakah domain ini whitelisted — jika iya, skip blacklist check
-      try {
-        const { extractRootDomain, checkWhitelist } = require('../services/domainAnalyzer');
-        const parsed = new URL(targetUrl.startsWith('http') ? targetUrl : 'https://' + targetUrl);
-        const rootDomain = extractRootDomain(parsed.hostname);
-        isWhitelisted = checkWhitelist(rootDomain.domain).isWhitelisted;
-      } catch (e) { /* skip whitelist check jika gagal parse */ }
-
-      if (!isWhitelisted) {
-        const blResult = localBlacklist.checkLocalBlacklist(targetUrl);
-        if (blResult.localBlacklist) {
-          const fastVerdict = buildFastVerdict(
-            scanId,
-            targetUrl,
-            95,
-            blResult.category,
-            `Terdeteksi di database ancaman lokal: ${blResult.matchSource}`,
-            `BLACKLIST_HIT: ${blResult.matchType}`
-          );
-          fastVerdict.duration = `${Date.now() - startTime}ms`;
-          clearTimeout(timeout);
-          cacheService.set('scan:' + inputHash, fastVerdict, 43200).catch(() => {});
-          return res.json(fastVerdict);
-        }
+      const blResult = localBlacklist.checkLocalBlacklist(targetUrl);
+      if (blResult.localBlacklist) {
+        const fastVerdict = buildFastVerdict(
+          scanId,
+          targetUrl,
+          95,
+          blResult.category,
+          `Terdeteksi di database ancaman lokal: ${blResult.matchSource}`,
+          `BLACKLIST_HIT: ${blResult.matchType}`
+        );
+        fastVerdict.duration = `${Date.now() - startTime}ms`;
+        clearTimeout(timeout);
+        cacheService.set('scan:' + inputHash, fastVerdict, 43200).catch(() => {});
+        return res.json(fastVerdict);
       }
     }
 
@@ -339,7 +328,7 @@ router.post('/', async (req, res) => {
 
       if (domainRes.status === 'fulfilled') {
         domainResult = domainRes.value;
-        tp('Analisis Domain', 'ok', domainResult.isWhitelisted ? 'Domain whitelisted' : `Skor domain: ${domainResult.totalScore}`);
+        tp('Analisis Domain', 'ok', `Skor domain: ${domainResult.totalScore}`);
       } else {
         domainResult.flags.push(`DOMAIN_ERROR: ${domainRes.reason?.message}`);
         tp('Analisis Domain', 'failed', domainRes.reason?.message);

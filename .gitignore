@@ -63,3 +63,6 @@ __pycache__/
 **/__pycache__/
 *.pyc
 *.pyo
+
+# Local credentials
+.credentials

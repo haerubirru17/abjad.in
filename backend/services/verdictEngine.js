@@ -55,25 +55,7 @@ function checkCriticalOverride(results) {
     };
   }
 
-  // Whitelist TIDAK melindungi konten judol
-  if (domain?.isWhitelisted && gemini?.judolSlang?.isJudol) {
-    return {
-      hasOverride: true,
-      score: 95,
-      category: 'JUDI_ONLINE',
-      reason: 'Konten judi online ditemukan di domain whitelisted (kemungkinan compromised)'
-    };
-  }
 
-  // Whitelist TIDAK melindungi konten phishing
-  if (domain?.isWhitelisted && gemini?.socialEng?.isSocialEngineering) {
-    return {
-      hasOverride: true,
-      score: 90,
-      category: 'PHISHING',
-      reason: 'Konten phishing ditemukan di domain whitelisted (kemungkinan compromised)'
-    };
-  }
 
   return null;
 }
@@ -208,12 +190,10 @@ function getSenderModifier(senderContext) {
 // LANGKAH 7: Determine category
 // ============================================================
 function determineCategory(gemini, threatIntel, mlLexical, domain) {
-  const isWhitelisted = domain?.isWhitelisted === true;
-
   // Prioritas: JUDI_ONLINE > PHISHING > MALWARE > MENCURIGAKAN
   if (gemini?.judolSlang?.isJudol) return 'JUDI_ONLINE';
   if (gemini?.url?.verdict === 'PHISHING' || gemini?.socialEng?.isSocialEngineering) return 'PHISHING';
-  if (mlLexical?.isPhishing && !isWhitelisted) return 'PHISHING';
+  if (mlLexical?.isPhishing) return 'PHISHING';
   if (gemini?.url?.verdict === 'JUDOL') return 'JUDI_ONLINE';
   if (gemini?.url?.verdict === 'MALWARE') return 'MALWARE';
   
@@ -280,7 +260,6 @@ function collectFactors(allResults) {
   const negative = [];
 
   // Domain
-  if (allResults.domain?.isWhitelisted) positive.push('Domain terdaftar di whitelist resmi');
   if (allResults.domain?.ssl?.hasHttps) positive.push('Website menggunakan HTTPS');
   if (allResults.domain?.rdap?.ageInDays > 365) positive.push(`Domain berumur ${allResults.domain.rdap.ageInDays} hari`);
 
@@ -371,17 +350,7 @@ function calculateVerdict(allResults, senderContext = null) {
       finalScore = Math.max(finalScore, 50);
     }
 
-    // LANGKAH 4: Apply whitelist modifier (kecuali override judol/phishing)
-    if (allResults.domain?.isWhitelisted && category !== 'JUDI_ONLINE' && category !== 'PHISHING') {
-      finalScore = Math.max(0, finalScore - 20);
-      // Jika tidak ada sinyal bahaya konkret (tidak ada Gemini, tidak ada threat intel),
-      // cap score domain whitelisted ke maks 49 (AMAN)
-      const hasConcreteThreats = (allResults.threatIntel?.totalScore || 0) > 20 ||
-        allResults.homograph?.riskScore > 30;
-      if (!hasConcreteThreats) {
-        finalScore = Math.min(finalScore, 49);
-      }
-    }
+
   }
 
   // LANGKAH 5: Apply sender context modifier
@@ -506,29 +475,29 @@ if (require.main === module) {
         const r = calculateVerdict({
           normalized: { flags: [], score: 0 },
           homograph: { riskScore: 0, flags: [] },
-          domain: { totalScore: 0, isWhitelisted: true, flags: [] },
+          domain: { totalScore: 0, flags: [] },
           resolver: { riskScore: 0, flags: [] },
           threatIntel: { hasOverride: false, totalScore: 0, flags: [] },
           gemini: { url: { verdict: 'AMAN', confidence: 0.1 } }
         });
         return r.verdict === 'AMAN';
       },
-      desc: 'Domain whitelist + semua skor 0 = AMAN'
+      desc: 'Semua skor 0 = AMAN'
     },
     {
-      name: '3. Whitelist + judol = tetap BLOKIR',
+      name: '3. Judol — tetap BLOKIR',
       fn: () => {
         const r = calculateVerdict({
           normalized: { flags: [], score: 0 },
           homograph: { riskScore: 0, flags: [] },
-          domain: { totalScore: 0, isWhitelisted: true, flags: [] },
+          domain: { totalScore: 0, flags: [] },
           resolver: { riskScore: 0, flags: [] },
-          threatIntel: { hasOverride: false, totalScore: 0, flags: [] },
-          gemini: { judolSlang: { isJudol: true, confidence: 0.9 } }
+          threatIntel: { hasOverride: true, overrideScore: 95, overrideCategory: 'JUDI_ONLINE', totalScore: 95, flags: ['JUDOL_BLACKLIST'] },
+          gemini: { judolSlang: { isJudol: true, confidence: 0.95 } }
         });
-        return r.category === 'JUDI_ONLINE' && r.score >= 85;
+        return r.category === 'JUDI_ONLINE' && r.verdict === 'BLOKIR';
       },
-      desc: 'Whitelist TIDAK melindungi konten judol'
+      desc: 'Konten judol harus diblokir jika dideteksi di database/override'
     },
     {
       name: '4. Sender context — unknown WA',

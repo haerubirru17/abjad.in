@@ -9,7 +9,7 @@
 const fetch = require('node-fetch');
 const cacheService = require('./cacheService');
 const localBlacklist = require('./localBlacklist');
-const { extractRootDomain, checkWhitelist } = require('./domainAnalyzer');
+const { extractRootDomain } = require('./domainAnalyzer');
 
 // API Keys dari environment variables
 const SAFE_BROWSING_KEY = process.env.GOOGLE_SAFE_BROWSING_API_KEY || '';
@@ -330,13 +330,8 @@ async function checkThreatIntel(finalUrl, chain = []) {
 
   // Ekstrak domain dari finalUrl
   let domain = '';
-  let isWhitelistedDomain = false;
   try {
     domain = new URL(finalUrl).hostname;
-    // Cek whitelist — domain whitelisted tidak dicek ke local blacklist
-    // (JPCERT kadang memiliki FP untuk domain besar)
-    const rootDomainInfo = extractRootDomain(domain);
-    isWhitelistedDomain = checkWhitelist(rootDomainInfo.domain).isWhitelisted;
   } catch (e) {
     try {
       domain = new URL('https://' + finalUrl).hostname;
@@ -351,10 +346,7 @@ async function checkThreatIntel(finalUrl, chain = []) {
       checkURLhaus(domain),
       checkPhishTank(finalUrl),
       checkJudolBlacklist(domain, finalUrl),
-      // Skip local blacklist untuk domain whitelisted (cegah false positive - karena db lokal tidak cerdas)
-      isWhitelistedDomain
-        ? Promise.resolve({ localBlacklist: false, skipped: true })
-        : checkLocalDB(finalUrl),
+      checkLocalDB(finalUrl),
       checkVirusTotal(domain, finalUrl)
     ]);
 
