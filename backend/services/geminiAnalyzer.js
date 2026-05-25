@@ -199,7 +199,7 @@ async function callGemini(userPrompt, maxRetries = 2, imagePart = null) {
         .trim();
 
       const parsed = JSON.parse(cleanJson);
-      parsed._model = `${modelName} (${instance.keyPrefix})`;
+      parsed._model = modelName;
       return parsed;
 
     } catch (error) {
@@ -258,7 +258,7 @@ Output HANYA JSON berikut:
     confidence: 0,
     indicators: [],
     explanation: 'Analisa AI tidak tersedia saat ini.',
-    _model: 'fallback'
+    _model: 'Gemini AI'
   };
 }
 
@@ -298,7 +298,7 @@ Output HANYA JSON berikut:
     claimedBrand: null,
     requestedData: [],
     explanation: 'Analisa AI tidak tersedia saat ini.',
-    _model: 'fallback'
+    _model: 'Gemini AI'
   };
 }
 
@@ -340,7 +340,7 @@ Output HANYA JSON berikut:
     detectedSlang: [],
     contextAnalysis: '',
     explanation: 'Analisa AI tidak tersedia saat ini.',
-    _model: 'fallback'
+    _model: 'Gemini AI'
   };
 }
 
@@ -381,7 +381,7 @@ Output HANYA JSON berikut:
     confidence: 0,
     detectedElements: [],
     explanation: 'Analisa AI tidak tersedia saat ini.',
-    _model: 'fallback'
+    _model: 'Gemini AI'
   };
 }
 
@@ -503,7 +503,7 @@ Output HANYA JSON berikut (jangan tambahkan markdown atau teks lain):
         brandRecognition: { isKnownBrand: false, brandName: null, isOfficialDomain: false },
         indicators: [],
         explanation: 'Analisa AI tidak tersedia saat ini.',
-        _model: 'fallback'
+        _model: 'Gemini AI'
       } : null,
       socialEng: text ? {
         isSocialEngineering: false,
@@ -512,14 +512,14 @@ Output HANYA JSON berikut (jangan tambahkan markdown atau teks lain):
         claimedBrand: null,
         requestedData: [],
         explanation: 'Analisa AI tidak tersedia saat ini.',
-        _model: 'fallback'
+        _model: 'Gemini AI'
       } : null,
       judolSlang: text ? {
         isJudol: false,
         confidence: 0,
         detectedSlang: [],
         contextAnalysis: '',
-        _model: 'fallback'
+        _model: 'Gemini AI'
       } : null
     };
   }
