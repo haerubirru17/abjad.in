@@ -216,6 +216,14 @@ function determineCategory(gemini, threatIntel, mlLexical, domain) {
   if (mlLexical?.isPhishing && !isWhitelisted) return 'PHISHING';
   if (gemini?.url?.verdict === 'JUDOL') return 'JUDI_ONLINE';
   if (gemini?.url?.verdict === 'MALWARE') return 'MALWARE';
+  
+  // Check VirusTotal flags for specific threat categories
+  const flagsStr = (threatIntel?.flags || []).join(' ').toLowerCase();
+  if (flagsStr.includes('virustotal')) {
+    if (flagsStr.includes('malware')) return 'MALWARE';
+    return 'PHISHING';
+  }
+
   return 'MENCURIGAKAN';
 }
 

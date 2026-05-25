@@ -14,6 +14,7 @@ const { extractRootDomain, checkWhitelist } = require('./domainAnalyzer');
 // API Keys dari environment variables
 const SAFE_BROWSING_KEY = process.env.GOOGLE_SAFE_BROWSING_API_KEY || '';
 const PHISHTANK_KEY = process.env.PHISHTANK_API_KEY || '';
+const VIRUSTOTAL_KEY = process.env.VIRUSTOTAL_API_KEY || '';
 
 /**
  * CHECK 1: Google Safe Browsing API v4
@@ -226,6 +227,95 @@ async function checkLocalDB(finalUrl) {
 }
 
 /**
+ * CHECK 7: VirusTotal API v3 (URLs & Domains)
+ * Pengecekan realtime terhadap database reputasi dan ancaman VirusTotal global.
+ */
+async function checkVirusTotal(domain, finalUrl) {
+  if (!VIRUSTOTAL_KEY) {
+    return { virustotal: false, error: 'API key tidak tersedia' };
+  }
+
+  const cleanUrl = finalUrl.toLowerCase();
+
+  try {
+    // 1. Coba scan URL dengan base64url tanpa padding
+    const urlId = Buffer.from(cleanUrl).toString('base64')
+      .replace(/=/g, '')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_');
+
+    let response = await fetch(`https://www.virustotal.com/api/v3/urls/${urlId}`, {
+      headers: { 'x-apikey': VIRUSTOTAL_KEY },
+      timeout: 4000
+    });
+
+    let data = null;
+    if (response.ok) {
+      data = await response.json();
+    } else if (response.status === 404) {
+      // 2. Jika URL tidak ditemukan (404), fall back ke domain report
+      response = await fetch(`https://www.virustotal.com/api/v3/domains/${domain}`, {
+        headers: { 'x-apikey': VIRUSTOTAL_KEY },
+        timeout: 4000
+      });
+
+      if (response.ok) {
+        data = await response.json();
+      }
+    }
+
+    if (!data || !data.data) {
+      return { virustotal: false };
+    }
+
+    const stats = data.data.attributes?.last_analysis_stats || {};
+    const malicious = stats.malicious || 0;
+    const suspicious = stats.suspicious || 0;
+    const reputation = data.data.attributes?.reputation || 0;
+
+    let score = 0;
+    let isPhishing = false;
+    let isMalware = false;
+    let flag = null;
+
+    if (malicious >= 4) {
+      score = 85;
+      flag = 'VIRUSTOTAL_MALICIOUS';
+      const categories = Object.values(data.data.attributes?.categories || {}).join(' ').toLowerCase();
+      if (categories.includes('malware') || categories.includes('botnet') || categories.includes('phishing')) {
+        if (categories.includes('malware') || categories.includes('botnet')) {
+          isMalware = true;
+        } else {
+          isPhishing = true;
+        }
+      } else {
+        isPhishing = true;
+      }
+    } else if (malicious >= 2) {
+      score = 50;
+      flag = 'VIRUSTOTAL_SUSPICIOUS';
+    } else if (malicious === 1 || suspicious >= 2) {
+      score = 25;
+      flag = 'VIRUSTOTAL_WARNING';
+    }
+
+    return {
+      virustotal: true,
+      malicious,
+      suspicious,
+      reputation,
+      score,
+      flag,
+      isPhishing,
+      isMalware,
+      stats
+    };
+  } catch (error) {
+    return { virustotal: false, error: error.message };
+  }
+}
+
+/**
  * Fungsi utama: checkThreatIntel
  * Jalankan SEMUA check secara paralel dengan Promise.allSettled()
  * 
@@ -254,7 +344,7 @@ async function checkThreatIntel(finalUrl, chain = []) {
   }
 
   // Jalankan semua checks secara paralel
-  const [gsbResult, openphishResult, urlhausResult, phishtankResult, judolResult, localResult] =
+  const [gsbResult, openphishResult, urlhausResult, phishtankResult, judolResult, localResult, vtResult] =
     await Promise.allSettled([
       checkGoogleSafeBrowsing(uniqueUrls),
       isWhitelistedDomain
@@ -272,7 +362,11 @@ async function checkThreatIntel(finalUrl, chain = []) {
       // Skip local blacklist untuk domain whitelisted (cegah false positive)
       isWhitelistedDomain
         ? Promise.resolve({ localBlacklist: false, skipped: true })
-        : checkLocalDB(finalUrl)
+        : checkLocalDB(finalUrl),
+      // Skip VirusTotal untuk domain whitelisted
+      isWhitelistedDomain
+        ? Promise.resolve({ virustotal: false, skipped: true })
+        : checkVirusTotal(domain, finalUrl)
     ]);
 
 
@@ -283,13 +377,14 @@ async function checkThreatIntel(finalUrl, chain = []) {
   const phishtank = phishtankResult.status === 'fulfilled' ? phishtankResult.value : { phishtank: false, error: 'Promise rejected' };
   const judol = judolResult.status === 'fulfilled' ? judolResult.value : { judol: false, error: 'Promise rejected' };
   const localDb = localResult.status === 'fulfilled' ? localResult.value : { localBlacklist: false, error: 'Promise rejected' };
+  const vt = vtResult.status === 'fulfilled' ? vtResult.value : { virustotal: false, error: 'Promise rejected' };
 
   // Cek overrides
   let hasOverride = false;
   let overrideScore = 0;
   let overrideCategory = null;
 
-  // Prioritas Override: Local DB > GSB > Judol
+  // Prioritas Override: Local DB > GSB > VirusTotal > Judol
   if (localDb.localBlacklist && localDb.override) {
     hasOverride = true;
     overrideScore = localDb.override;
@@ -298,17 +393,22 @@ async function checkThreatIntel(finalUrl, chain = []) {
     hasOverride = true;
     overrideScore = gsb.override;
     overrideCategory = gsb.threatType;
+  } else if (vt.virustotal && vt.score >= 85) {
+    hasOverride = true;
+    overrideScore = vt.score;
+    overrideCategory = vt.isMalware ? 'MALWARE' : 'PHISHING';
   } else if (judol.judol && judol.override) {
     hasOverride = true;
     overrideScore = Math.max(overrideScore, judol.override);
     overrideCategory = judol.category;
   }
 
-  // Hitung total score
+  // Hitung total score (jika tidak ada override)
   let totalScore = 0;
   totalScore += (openphish.score || 0);
   totalScore += (urlhaus.score || 0);
   totalScore += (phishtank.score || 0);
+  totalScore += (vt.score || 0);
 
   if (hasOverride) {
     totalScore = overrideScore;
@@ -324,6 +424,7 @@ async function checkThreatIntel(finalUrl, chain = []) {
   if (urlhaus.urlhaus) flags.push('URLHAUS_MATCH: MALWARE');
   if (phishtank.phishtank) flags.push('PHISHTANK_MATCH');
   if (judol.judol) flags.push('JUDOL_BLACKLIST_MATCH');
+  if (vt.virustotal && vt.flag) flags.push(`${vt.flag}: ${vt.malicious} engine mendeteksi ancaman`);
 
   return {
     hasOverride,
@@ -335,7 +436,8 @@ async function checkThreatIntel(finalUrl, chain = []) {
       openphish: openphish.score || 0,
       urlhaus: urlhaus.score || 0,
       phishtank: phishtank.score || 0,
-      judol: judol.judol ? (judol.override || 0) : 0
+      judol: judol.judol ? (judol.override || 0) : 0,
+      virustotal: vt.score || 0
     },
     totalScore,
     flags
@@ -391,5 +493,6 @@ module.exports = {
   checkURLhaus,
   checkPhishTank,
   checkJudolBlacklist,
-  checkLocalDB
+  checkLocalDB,
+  checkVirusTotal
 };
