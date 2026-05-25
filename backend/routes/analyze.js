@@ -221,9 +221,9 @@ router.post('/', async (req, res) => {
     // ⚡ FASE 0 — EARLY EXIT (< 10ms, tanpa network)
     // ===================================================
     // Cek Local Blacklist (in-memory Set, instan)
+    let isWhitelisted = false;
     if (targetUrl) {
       // Cek apakah domain ini whitelisted — jika iya, skip blacklist check
-      let isWhitelisted = false;
       try {
         const { extractRootDomain, checkWhitelist } = require('../services/domainAnalyzer');
         const parsed = new URL(targetUrl.startsWith('http') ? targetUrl : 'https://' + targetUrl);
