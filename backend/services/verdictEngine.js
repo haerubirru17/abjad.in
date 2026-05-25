@@ -193,7 +193,7 @@ function determineCategory(gemini, threatIntel, mlLexical, domain) {
   // Prioritas: JUDI_ONLINE > PHISHING > MALWARE > MENCURIGAKAN
   if (gemini?.judolSlang?.isJudol) return 'JUDI_ONLINE';
   if (gemini?.url?.verdict === 'PHISHING' || gemini?.socialEng?.isSocialEngineering) return 'PHISHING';
-  if (mlLexical?.isPhishing) return 'PHISHING';
+  if (mlLexical?.isPhishing && (mlLexical.confidence || 0) >= 0.85) return 'PHISHING';
   if (gemini?.url?.verdict === 'JUDOL') return 'JUDI_ONLINE';
   if (gemini?.url?.verdict === 'MALWARE') return 'MALWARE';
   
