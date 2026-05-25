@@ -58,6 +58,20 @@ function VoiceWaveform({ isActive }: { isActive: boolean }) {
 }
 
 // ════════════════════════════════════════════════════════════════
+// Helper: Deteksi topik dari teks jawaban AI untuk sinkronisasi panel kanan
+// ════════════════════════════════════════════════════════════════
+function detectTopicFromText(text: string): string | null {
+  const t = text.toLowerCase();
+  if (t.includes('homograph') || t.includes('karakter palsu') || t.includes('cyrillic') || t.includes('spoofing huruf')) return 'HOMOGRAPH';
+  if (t.includes('judi') || t.includes('slot') || t.includes('gacor') || t.includes('maxwin') || t.includes('togel') || t.includes('scatter')) return 'JUDOL';
+  if (t.includes('phishing') || t.includes('pencurian data') || t.includes('halaman login palsu') || t.includes('website palsu')) return 'PHISHING';
+  if (t.includes('malware') || t.includes('virus') || t.includes('spyware') || t.includes('ransomware') || t.includes('keylogger')) return 'MALWARE';
+  if (t.includes('pemendek url') || t.includes('bit.ly') || t.includes('shortener') || t.includes('link pendek') || t.includes('s.id')) return 'URL_SHORTENER';
+  if (t.includes('rekayasa sosial') || t.includes('social engineering') || t.includes('manipulasi psikologis') || t.includes('urgensi palsu')) return 'SOCIAL_ENGINEERING';
+  return null;
+}
+
+// ════════════════════════════════════════════════════════════════
 // Main Component
 // ════════════════════════════════════════════════════════════════
 export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatProps) {
@@ -71,6 +85,8 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
   const [liveTranscript, setLiveTranscript] = useState('');
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [mobileActiveTab, setMobileActiveTab] = useState<'chat' | 'lab'>('chat'); // Tab untuk tampilan mobile
+  const [activeLabTopic, setActiveLabTopic] = useState<string | null>(null); // Remote control panel kanan
+  const [isLabUpdating, setIsLabUpdating] = useState(false); // Animasi update panel kanan
 
   // ── Refs ───────────────────────────────────────────────────
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -109,13 +125,25 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, liveTranscript]);
 
-  // ── Greeting saat pertama buka ────────────────────────────
+  // ── Greeting saat pertama buka — berisi Scan Summary kontekstual ────────────────
   useEffect(() => {
     if (isOpen && messages.length === 0) {
-      const greeting = scanContext?.verdict
-        ? `Halo! Aku AbjadIn, asisten keamanan digitalmu. Aku sudah lihat hasil scan kamu tadi. Ada yang ingin kamu tanyakan tentang hasilnya?`
-        : `Halo! Aku AbjadIn, asisten keamanan digitalmu. Kamu bisa tanya apa saja seputar keamanan online. Atau scan dulu link yang ingin kamu periksa ya!`;
-
+      let greeting: string;
+      if (scanContext?.verdict) {
+        const verdictEmoji = scanContext.verdict === 'MALICIOUS' ? '🚨' : scanContext.verdict === 'SUSPICIOUS' ? '⚠️' : '✅';
+        const verdictLabel = scanContext.verdict === 'MALICIOUS' ? 'BERBAHAYA' : scanContext.verdict === 'SUSPICIOUS' ? 'MENCURIGAKAN' : 'AMAN';
+        const scoreText = scanContext.score !== undefined ? ` (Skor Ancaman: ${scanContext.score}/100)` : '';
+        const categoryText = scanContext.category ? `\nKategori Ancaman: ${scanContext.category}` : '';
+        const snippetText = scanContext.explanation
+          ? `\n\n📋 Ringkasan: ${scanContext.explanation.slice(0, 220)}${scanContext.explanation.length > 220 ? '...' : ''}`
+          : '';
+        const panelHint = scanContext.verdict !== 'SAFE'
+          ? '\n\n👉 Panel kanan sudah menampilkan analogi visual & penjelasan untuk kasus ini. Klik tombol "Tanya AI tentang ini" di sana, atau langsung tanya di bawah!'
+          : '\n\n👉 Meskipun link ini aman, kamu bisa tanya apa saja seputar keamanan digital — aku siap membantu!';
+        greeting = `${verdictEmoji} Hai! Aku sudah menganalisis hasil scan kamu.\n\nStatus: ${verdictLabel}${scoreText}${categoryText}${snippetText}${panelHint}`;
+      } else {
+        greeting = `Halo! Aku AbjadIn, asisten keamanan digitalmu. Kamu bisa tanya apa saja seputar keamanan online. Atau scan dulu link yang ingin kamu periksa ya!`;
+      }
       setMessages([{ role: 'assistant', text: greeting }]);
     }
   }, [isOpen, scanContext?.verdict]);
@@ -167,6 +195,16 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
       };
 
       setMessages(prev => [...prev, assistantMsg]);
+
+      // ── Sinkronisasi panel kanan: deteksi topik dari jawaban AI ──
+      const detectedTopic = detectTopicFromText(data.reply);
+      if (detectedTopic) {
+        setIsLabUpdating(true);
+        setTimeout(() => {
+          setActiveLabTopic(detectedTopic);
+          setIsLabUpdating(false);
+        }, 400);
+      }
 
       // Voice mode: prioritas Cloud TTS (Google WaveNet, jauh lebih natural)
       //             fallback ke browser TTS jika API key tidak tersedia
@@ -777,10 +815,41 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
                 </div>
 
                 {/* ── RIGHT PANEL: Virtual Threat Lab Sandbox (Edukasi Visual) ── */}
-                <div className={`w-full md:w-[58%] h-full bg-muted/5 overflow-y-auto p-6 border-l border-border/20 ${
-                  mobileActiveTab !== 'lab' ? 'hidden md:block' : 'block'
+                <div className={`w-full md:w-[58%] h-full bg-muted/5 overflow-y-auto border-l border-border/20 flex flex-col ${
+                  mobileActiveTab !== 'lab' ? 'hidden md:flex' : 'flex'
                 }`}>
-                  <ThreatLabSandbox scanContext={scanContext} />
+                  {/* Mini header panel kanan dengan Live indicator */}
+                  <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-2.5 border-b border-border/30 bg-card/80 backdrop-blur-sm flex-shrink-0">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">💡 Virtual Threat Lab</span>
+                    {isLabUpdating ? (
+                      <span className="flex items-center gap-1.5 text-[10px] font-bold text-primary">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping inline-block" />
+                        Memperbarui...
+                      </span>
+                    ) : activeLabTopic ? (
+                      <span className="flex items-center gap-1.5 text-[10px] font-bold text-primary">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block" />
+                        Live
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-6">
+                    <motion.div
+                      key={activeLabTopic || 'default'}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <ThreatLabSandbox
+                        scanContext={scanContext}
+                        activeTopicOverride={activeLabTopic}
+                        onAskAbout={(question) => {
+                          setMobileActiveTab('chat');
+                          sendMessageRef.current(question);
+                        }}
+                      />
+                    </motion.div>
+                  </div>
                 </div>
 
               </div>
@@ -793,18 +862,62 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
 }
 
 // ════════════════════════════════════════════════════════════════
-// Component Kanan: ThreatLabSandbox (Visual & Analogi Edukatif)
+// Component Kanan: ThreatLabSandbox — terintegrasi dengan AI Chat
+// Props: activeTopicOverride mengoverride tampilan berdasarkan
+// topik yang dideteksi dari percakapan AI (dua arah)
 // ════════════════════════════════════════════════════════════════
-function ThreatLabSandbox({ scanContext }: { scanContext: ScanContext | null }) {
+function ThreatLabSandbox({
+  scanContext,
+  activeTopicOverride,
+  onAskAbout,
+}: {
+  scanContext: ScanContext | null;
+  activeTopicOverride: string | null;
+  onAskAbout: (question: string) => void;
+}) {
   if (!scanContext) return null;
 
-  const { verdict, score, category, explanation, flags = [] } = scanContext;
+  const { verdict, category, explanation, flags = [] } = scanContext;
 
-  const isHomograph = flags.some(f => f.includes('HOMOGRAPH')) || (explanation && explanation.toLowerCase().includes('homograph'));
-  const isGamblingOrLoker = category?.toLowerCase().includes('judi') || category?.toLowerCase().includes('gambling') || flags.some(f => f.includes('ANTI_GAMBLING'));
-  
-  // Case 1: Homograph Attack
-  if (isHomograph) {
+  // ── Resolve case: topicOverride dari AI mengoverride logika default ──
+  type LabCase = 'homograph' | 'judol' | 'phishing' | 'safe' | 'malware' | 'shortener' | 'social';
+
+  let activeCase: LabCase;
+  if (activeTopicOverride) {
+    const topicMap: Record<string, LabCase> = {
+      HOMOGRAPH: 'homograph',
+      JUDOL: 'judol',
+      PHISHING: 'phishing',
+      MALWARE: 'malware',
+      URL_SHORTENER: 'shortener',
+      SOCIAL_ENGINEERING: 'social',
+    };
+    activeCase = topicMap[activeTopicOverride] ?? (verdict === 'SAFE' ? 'safe' : 'phishing');
+  } else {
+    const isHomograph = flags.some(f => f.includes('HOMOGRAPH')) || !!(explanation?.toLowerCase().includes('homograph'));
+    const isGambling = category?.toLowerCase().includes('judi') || category?.toLowerCase().includes('gambling') || flags.some(f => f.includes('ANTI_GAMBLING'));
+    if (isHomograph) activeCase = 'homograph';
+    else if (isGambling) activeCase = 'judol';
+    else if (verdict === 'MALICIOUS' || verdict === 'SUSPICIOUS') activeCase = 'phishing';
+    else activeCase = 'safe';
+  }
+
+  // ── Tombol Tanya AI — reusable di semua modul ──
+  function AskAIButton({ question, label }: { question: string; label?: string }) {
+    return (
+      <button
+        onClick={() => onAskAbout(question)}
+        className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-xs font-bold transition-all cursor-pointer group"
+      >
+        <span className="text-sm">💬</span>
+        <span>{label || 'Tanya AI tentang ini →'}</span>
+        <span className="opacity-0 group-hover:opacity-100 transition-opacity ml-auto text-[10px]">↵</span>
+      </button>
+    );
+  }
+
+  // ── Case 1: Homograph Attack ──
+  if (activeCase === 'homograph') {
     return (
       <div className="space-y-6 text-foreground">
         <div>
@@ -813,45 +926,44 @@ function ThreatLabSandbox({ scanContext }: { scanContext: ScanContext | null }) 
           </span>
           <h2 className="text-xl font-black mt-2 text-foreground">🎭 Teknik Spoofing Huruf Kembar</h2>
         </div>
-
         <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-3 shadow-sm">
-          <h3 className="font-bold text-xs text-primary flex items-center gap-2">💡 Analogi Sederhana: "Si Kembar Palsu"</h3>
+          <h3 className="font-bold text-xs text-primary flex items-center gap-2">💡 Analogi Sederhana: &quot;Si Kembar Palsu&quot;</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
             Bayangkan seseorang meniru tanda tangan Anda atau menggunakan topeng yang 100% mirip dengan wajah teman Anda. Secara visual, mata manusia tidak bisa membedakannya. Namun secara identitas hukum, ia adalah orang asing yang ingin mencuri kunci rumah Anda.
           </p>
+          <AskAIButton question="Jelaskan lebih detail tentang teknik Homograph Attack dan bagaimana cara mendeteksinya?" />
         </div>
-
         <div className="p-4 rounded-2xl bg-muted/30 border border-border/30 space-y-4">
           <h3 className="font-bold text-xs text-foreground">🔍 Threat Sandbox: Perbedaan Karakter</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-center">
               <span className="text-[10px] text-emerald-500 font-bold block mb-1">URL Asli (Latin)</span>
               <span className="font-mono text-base font-extrabold tracking-wider text-emerald-400">google.com</span>
-              <span className="text-[10px] text-muted-foreground block mt-1">Menggunakan huruf 'o' Latin (Unicode U+006F)</span>
+              <span className="text-[10px] text-muted-foreground block mt-1">Huruf &apos;o&apos; Latin (Unicode U+006F)</span>
             </div>
             <div className="p-3.5 rounded-xl bg-destructive/5 border border-destructive/20 text-center">
               <span className="text-[10px] text-destructive font-bold block mb-1">URL Palsu (Cyrillic)</span>
               <span className="font-mono text-base font-extrabold tracking-wider text-destructive">g<span className="text-red-500 underline decoration-wavy font-black">оо</span>gle.com</span>
-              <span className="text-[10px] text-muted-foreground block mt-1">Menggunakan huruf 'о' Cyrillic (Unicode U+043E)</span>
+              <span className="text-[10px] text-muted-foreground block mt-1">Huruf &apos;о&apos; Cyrillic (Unicode U+043E)</span>
             </div>
           </div>
           <p className="text-[10px] text-muted-foreground italic leading-relaxed">
-            *Komputer membaca kedua alamat di atas sebagai dua server yang 100% berbeda. Peretas memanfaatkan ini agar Anda mengira sedang membuka situs asli Google.
+            *Komputer membaca kedua alamat sebagai dua server berbeda. Peretas memanfaatkan ini agar Anda mengira sedang di situs asli.
           </p>
         </div>
-
         <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-2 shadow-sm">
           <h3 className="font-bold text-xs text-amber-500">📜 Cerita Kasus Nyata</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Pada tahun 2017, peneliti menemukan situs web tiruan sempurna dari <strong>apple.com</strong> yang menggunakan huruf Cyrillic 'а' (U+0430) sebagai ganti huruf Latin 'a'. Pengunjung diarahkan ke server peretas tanpa menyadari bahwa bilah alamat di browser mereka sebenarnya mengarah ke situs palsu.
+            Pada tahun 2017, peneliti menemukan situs tiruan <strong>apple.com</strong> menggunakan huruf Cyrillic &apos;а&apos; (U+0430) sebagai ganti huruf Latin &apos;a&apos;. Pengunjung diarahkan ke server peretas tanpa sadar.
           </p>
+          <AskAIButton question="Bagaimana cara melindungi diri dari serangan Homograph? Apa yang harus aku lakukan jika menerima link mencurigakan?" label="Minta saran perlindungan dari AI →" />
         </div>
       </div>
     );
   }
 
-  // Case 2: Judi Online / Phishing Loker
-  if (isGamblingOrLoker) {
+  // ── Case 2: Judi Online ──
+  if (activeCase === 'judol') {
     return (
       <div className="space-y-6 text-foreground">
         <div>
@@ -860,44 +972,159 @@ function ThreatLabSandbox({ scanContext }: { scanContext: ScanContext | null }) 
           </span>
           <h2 className="text-xl font-black mt-2 text-foreground">🎣 Manipulasi Psikologis (Umpan Cepat)</h2>
         </div>
-
         <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-3 shadow-sm">
-          <h3 className="font-bold text-xs text-primary flex items-center gap-2">💡 Analogi Sederhana: "Umpan Pancing Beracun"</h3>
+          <h3 className="font-bold text-xs text-primary flex items-center gap-2">💡 Analogi Sederhana: &quot;Umpan Pancing Beracun&quot;</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Bagaikan seekor ikan yang melihat cacing gemuk melayang di dalam air. Umpan tersebut tampak sangat lezat dan mudah didapatkan (menjanjikan menang slot instan atau kerja gampang digaji puluhan juta). Begitu umpan tersebut digigit, kait tajam akan melukai Anda, dan Anda akan kehilangan segalanya.
+            Bagaikan seekor ikan yang melihat cacing gemuk melayang di dalam air. Umpan tampak sangat lezat (menang slot instan, gaji puluhan juta). Begitu digigit, kait tajam melukai Anda dan Anda kehilangan segalanya.
           </p>
+          <AskAIButton question="Mengapa judi online selalu merugikan secara matematis? Apa maksud istilah slot gacor dan maxwin?" />
         </div>
-
         <div className="p-4 rounded-2xl bg-muted/30 border border-border/30">
           <h3 className="font-bold text-xs text-foreground mb-4">🔄 Skema Alur Eksploitasi Judi/Loker Palsu</h3>
-          <div className="flex flex-col gap-3 text-center sm:text-left">
-            <div className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/10">
-              <span className="text-[11px] font-bold text-purple-400 block mb-1">1. Umpan Menggiurkan</span>
-              <p className="text-xs text-muted-foreground">Iklan menang mudah, bonus deposit besar, atau info loker palsu via SMS/WA.</p>
-            </div>
-            <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/10">
-              <span className="text-[11px] font-bold text-amber-400 block mb-1">2. Jebakan Halaman</span>
-              <p className="text-xs text-muted-foreground">Situs meminta Anda mentransfer uang deposit awal atau mengunggah foto KTP.</p>
-            </div>
-            <div className="p-3 rounded-xl bg-destructive/5 border border-destructive/10">
-              <span className="text-[11px] font-bold text-red-400 block mb-1">3. Kerugian Finansial</span>
-              <p className="text-xs text-muted-foreground">Uang Anda dibawa lari, saldo rekening dikuras, atau data identitas Anda disalahgunakan.</p>
-            </div>
+          <div className="flex flex-col gap-3">
+            {[
+              { step: '1. Umpan Menggiurkan', desc: 'Iklan menang mudah, bonus deposit besar, atau info loker palsu via SMS/WA.', color: 'purple' },
+              { step: '2. Jebakan Halaman', desc: 'Situs meminta transfer deposit awal atau unggah foto KTP.', color: 'amber' },
+              { step: '3. Kerugian Finansial', desc: 'Uang dibawa lari, rekening dikuras, atau data identitas disalahgunakan.', color: 'red' },
+            ].map((item, i) => (
+              <div key={i} className={`p-3 rounded-xl bg-${item.color}-500/5 border border-${item.color}-500/10`}>
+                <span className={`text-[11px] font-bold text-${item.color}-400 block mb-1`}>{item.step}</span>
+                <p className="text-xs text-muted-foreground">{item.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
-
         <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-2 shadow-sm">
           <h3 className="font-bold text-xs text-purple-500">📜 Cerita Kasus Nyata</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Peretas judi online sering meretas sub-domain instansi pemerintah (.go.id) atau lembaga pendidikan (.sch.id) untuk menanam situs slot mereka. Hal ini dilakukan guna menipu mesin pencari Google agar situs judi tersebut terlihat sah dan memiliki reputasi tinggi secara otomatis.
+            Peretas judi online sering meretas sub-domain instansi pemerintah (.go.id) untuk menanam situs slot agar terlihat sah di mesin pencari Google.
           </p>
+          <AskAIButton question="Bagaimana cara melaporkan situs judi online? Dan bagaimana memblokir kiriman link judi dari orang lain?" label="Minta cara melaporkan ke AI →" />
         </div>
       </div>
     );
   }
 
-  // Case 3: Generic threat
-  if (verdict === 'MALICIOUS' || verdict === 'SUSPICIOUS') {
+  // ── Case 3: Malware ──
+  if (activeCase === 'malware') {
+    return (
+      <div className="space-y-6 text-foreground">
+        <div>
+          <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20">
+            Deteksi Ancaman: Malware / Perangkat Lunak Berbahaya
+          </span>
+          <h2 className="text-xl font-black mt-2 text-foreground">🦠 Virus Digital — Spyware & Ransomware</h2>
+        </div>
+        <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-3 shadow-sm">
+          <h3 className="font-bold text-xs text-primary flex items-center gap-2">💡 Analogi Sederhana: &quot;Parasit Tak Kasat Mata&quot;</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Bayangkan seseorang diam-diam memasang kamera tersembunyi di rumahmu dan merekam semua aktivitasmu — termasuk saat kamu memasukkan PIN ATM. Begitulah spyware bekerja di perangkatmu, tanpa terlihat dan tanpa kamu sadari.
+          </p>
+          <AskAIButton question="Apa perbedaan antara virus, spyware, dan ransomware? Bagaimana cara tahu apakah perangkatku sudah terinfeksi?" />
+        </div>
+        <div className="p-4 rounded-2xl bg-muted/30 border border-border/30 space-y-3">
+          <h3 className="font-bold text-xs text-foreground">⚠️ Tanda-tanda Perangkat Terinfeksi:</h3>
+          <div className="space-y-2">
+            {[
+              'Baterai cepat habis padahal jarang dipakai',
+              'HP terasa panas meski tidak menjalankan aplikasi berat',
+              'Ada aplikasi asing yang tidak kamu instal',
+              'Data internet habis lebih cepat dari biasanya',
+              'Performa HP tiba-tiba melambat drastis',
+            ].map((sign, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                <span className="text-red-500 font-black">✕</span>
+                <span>{sign}</span>
+              </div>
+            ))}
+          </div>
+          <AskAIButton question="Apa yang harus aku lakukan jika curiga HP atau komputerku terkena malware? Langkah pertama yang harus dilakukan?" label="Minta langkah darurat dari AI →" />
+        </div>
+        <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-2 shadow-sm">
+          <h3 className="font-bold text-xs text-red-500">🛡️ Cara Pencegahan:</h3>
+          <ul className="list-disc pl-5 text-xs text-muted-foreground space-y-1">
+            <li>Jangan install APK dari luar Play Store / App Store</li>
+            <li>Selalu update sistem operasi dan aplikasi secara rutin</li>
+            <li>Jangan klik link download dari WhatsApp/SMS yang tidak dikenal</li>
+          </ul>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Case 4: URL Shortener ──
+  if (activeCase === 'shortener') {
+    return (
+      <div className="space-y-6 text-foreground">
+        <div>
+          <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">
+            Deteksi Teknik: Pemendek URL Berbahaya
+          </span>
+          <h2 className="text-xl font-black mt-2 text-foreground">🔗 Link Tersembunyi — Apa yang Disembunyikan?</h2>
+        </div>
+        <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-3 shadow-sm">
+          <h3 className="font-bold text-xs text-primary flex items-center gap-2">💡 Analogi Sederhana: &quot;Amplop Tertutup&quot;</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Menerima link pendek seperti menerima amplop tertutup dari orang tak dikenal. Kamu tidak tahu isinya sebelum membuka — surat resmi, atau tagihan palsu? Abjad.in membuka amplop itu untuk kamu, tanpa risiko.
+          </p>
+          <AskAIButton question="Apa itu pemendek URL seperti bit.ly dan s.id? Apakah semua link pendek berbahaya?" />
+        </div>
+        <div className="p-4 rounded-2xl bg-muted/30 border border-border/30 space-y-3">
+          <h3 className="font-bold text-xs text-foreground">🔍 Layanan yang Sering Disalahgunakan:</h3>
+          <div className="grid grid-cols-3 gap-2">
+            {['bit.ly', 's.id', 'cutt.ly', 'tinyurl.com', 'ow.ly', 'rb.gy'].map(svc => (
+              <div key={svc} className="p-2 rounded-lg bg-amber-500/5 border border-amber-500/10 text-center">
+                <span className="font-mono text-xs text-amber-500 font-bold">{svc}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-muted-foreground italic">*Layanan ini sah, tapi sering disalahgunakan penipu karena menyembunyikan tujuan link.</p>
+          <AskAIButton question="Bagaimana cara melihat kemana sebenarnya sebuah link pendek mengarah tanpa harus mengkliknya?" label="Minta cara cek aman ke AI →" />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Case 5: Social Engineering ──
+  if (activeCase === 'social') {
+    return (
+      <div className="space-y-6 text-foreground">
+        <div>
+          <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-orange-500/10 text-orange-500 border border-orange-500/20">
+            Deteksi Psikologis: Manipulasi Emosi
+          </span>
+          <h2 className="text-xl font-black mt-2 text-foreground">🧠 Rekayasa Sosial — Menyerang Pikiran, Bukan Komputer</h2>
+        </div>
+        <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-3 shadow-sm">
+          <h3 className="font-bold text-xs text-primary flex items-center gap-2">💡 Analogi Sederhana: &quot;Penipu Berseragam&quot;</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Bayangkan seseorang berseragam petugas bank datang ke rumahmu dan bilang &quot;Rekening Anda akan diblokir dalam 10 menit — serahkan buku tabungan Anda sekarang!&quot; Kepanikan membuatmu tunduk tanpa bertanya. Itulah persis cara kerja social engineering digital.
+          </p>
+          <AskAIButton question="Apa saja contoh nyata teknik social engineering yang sering terjadi di Indonesia?" />
+        </div>
+        <div className="p-4 rounded-2xl bg-muted/30 border border-border/30 space-y-3">
+          <h3 className="font-bold text-xs text-foreground">🎭 Taktik Manipulasi yang Umum:</h3>
+          <div className="space-y-2">
+            {[
+              { label: 'Urgensi Palsu', desc: '"Rekening diblokir dalam 5 menit!"' },
+              { label: 'Iming-iming Hadiah', desc: '"Kamu terpilih menang undian Rp 50 juta!"' },
+              { label: 'Ancaman Hukum', desc: '"Kamu akan dilaporkan ke polisi jika tidak transfer!"' },
+              { label: 'Penyamaran Brand', desc: '"CS BCA/Shopee" meminta OTP via chat.' },
+            ].map((t, i) => (
+              <div key={i} className="p-2.5 rounded-xl bg-orange-500/5 border border-orange-500/10">
+                <span className="text-[11px] font-bold text-orange-400 block">{t.label}</span>
+                <span className="text-[10px] text-muted-foreground italic">{t.desc}</span>
+              </div>
+            ))}
+          </div>
+          <AskAIButton question="Bagaimana cara mengenali dan melawan teknik manipulasi psikologis dalam penipuan digital?" label="Minta strategi perlindungan dari AI →" />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Case 6: Generic Phishing (MALICIOUS/SUSPICIOUS) ──
+  if (activeCase === 'phishing') {
     return (
       <div className="space-y-6 text-foreground">
         <div>
@@ -906,43 +1133,40 @@ function ThreatLabSandbox({ scanContext }: { scanContext: ScanContext | null }) 
           </span>
           <h2 className="text-xl font-black mt-2 text-foreground">🏠 Replika Rumah Palsu (Phishing)</h2>
         </div>
-
         <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-3 shadow-sm">
-          <h3 className="font-bold text-xs text-primary flex items-center gap-2">💡 Analogi Sederhana: "Replika Pintu Depan"</h3>
+          <h3 className="font-bold text-xs text-primary flex items-center gap-2">💡 Analogi Sederhana: &quot;Replika Pintu Depan&quot;</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Bayangkan seseorang membangun replika pintu depan rumah Anda yang sangat mirip di pinggir jalan umum. Ketika Anda mencoba memasukkan kunci fisik (kata sandi/username), kunci tersebut disalin secara diam-diam oleh peretas di balik pintu, lalu mereka menyalahgunakannya untuk membobol rumah asli Anda.
+            Bayangkan seseorang membangun replika pintu depan rumah Anda yang sangat mirip di pinggir jalan umum. Ketika Anda memasukkan kunci fisik (kata sandi/username), kunci tersebut disalin diam-diam oleh peretas di balik pintu, lalu digunakan untuk membobol rumah asli Anda.
           </p>
+          <AskAIButton question="Bagaimana cara mengenali website phishing? Apa tanda-tanda yang harus diwaspadai?" />
         </div>
-
         <div className="p-4 rounded-2xl bg-muted/30 border border-border/30 space-y-3">
           <h3 className="font-bold text-xs text-foreground">🚨 Check-list Hasil Deteksi Berlapis:</h3>
           <div className="space-y-2">
-            <div className="flex items-start gap-2.5 text-xs text-muted-foreground">
-              <span className="text-destructive font-black text-sm">✕</span>
-              <span><strong>Usia Domain Sangat Baru:</strong> Situs ini baru terdaftar dalam beberapa hari terakhir (pola umum pembuat penipuan cepat).</span>
-            </div>
-            <div className="flex items-start gap-2.5 text-xs text-muted-foreground">
-              <span className="text-destructive font-black text-sm">✕</span>
-              <span><strong>Visual Tiru-Tiruan:</strong> Kode halaman mencoba meniru layout brand perbankan/sosmed resmi secara paksa untuk menipu mata Anda.</span>
-            </div>
-            <div className="flex items-start gap-2.5 text-xs text-muted-foreground">
-              <span className="text-destructive font-black text-sm">✕</span>
-              <span><strong>Reputasi Buruk:</strong> Algoritma deteksi reputasi mendeteksi tidak adanya otentikasi e-mail atau sertifikat kepemilikan yang valid.</span>
-            </div>
+            {[
+              { label: 'Usia Domain Sangat Baru', desc: 'Situs baru terdaftar beberapa hari terakhir — pola umum penipuan cepat.' },
+              { label: 'Visual Tiru-Tiruan', desc: 'Kode halaman meniru layout brand perbankan/sosmed resmi untuk menipu mata.' },
+              { label: 'Reputasi Buruk', desc: 'Tidak ada otentikasi e-mail atau sertifikat kepemilikan yang valid.' },
+            ].map((item, i) => (
+              <div key={i} className="flex items-start gap-2.5 text-xs text-muted-foreground">
+                <span className="text-destructive font-black">✕</span>
+                <span><strong>{item.label}:</strong> {item.desc}</span>
+              </div>
+            ))}
           </div>
         </div>
-
         <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-2 shadow-sm">
           <h3 className="font-bold text-xs text-destructive">🛡️ Cara Menghindar:</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Selalu periksa domain utama di address bar. Perusahaan perbankan resmi atau layanan sosial besar tidak akan pernah menggunakan e-mail gratisan (seperti Gmail/Yahoo) atau meminta Anda mengonfirmasi kata sandi/OTP melalui halaman chat web tidak resmi.
+            Selalu periksa domain utama di address bar. Perusahaan perbankan resmi tidak pernah meminta konfirmasi kata sandi/OTP melalui link chat atau SMS.
           </p>
+          <AskAIButton question="Jika saya sudah terlanjur memasukkan data di website phishing, apa yang harus saya lakukan sekarang?" label="Minta bantuan darurat dari AI →" />
         </div>
       </div>
     );
   }
 
-  // Case 4: SAFE
+  // ── Case 7: SAFE ──
   return (
     <div className="space-y-6 text-foreground">
       <div>
@@ -951,32 +1175,28 @@ function ThreatLabSandbox({ scanContext }: { scanContext: ScanContext | null }) 
         </span>
         <h2 className="text-xl font-black mt-2 text-foreground">🛡️ Pintu Gerbang Pemeriksaan Berlapis</h2>
       </div>
-
       <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-3 shadow-sm">
-        <h3 className="font-bold text-xs text-emerald-500 flex items-center gap-2">💡 Analogi Sederhana: "Sistem Keamanan Bandara"</h3>
+        <h3 className="font-bold text-xs text-emerald-500 flex items-center gap-2">💡 Analogi Sederhana: &quot;Sistem Keamanan Bandara&quot;</h3>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Link ini diibaratkan seperti seorang pelancong di bandara yang telah lolos dari pemeriksaan bagasi X-Ray berlapis, verifikasi paspor resmi di imigrasi, dan detektor logam canggih. Tidak ditemukan zat berbahaya maupun identitas palsu pada dirinya.
+          Link ini diibaratkan seperti seorang pelancong di bandara yang telah lolos dari pemeriksaan X-Ray berlapis, verifikasi paspor, dan detektor logam canggih. Tidak ditemukan ancaman apapun.
         </p>
+        <AskAIButton question="Meskipun link ini aman, apa yang tetap harus aku waspadai saat browsing sehari-hari?" />
       </div>
-
       <div className="p-4 rounded-2xl bg-muted/30 border border-border/30 space-y-3">
         <h3 className="font-bold text-xs text-foreground">✅ Protokol Keamanan Abjad.in yang Telah Dilewati:</h3>
         <div className="space-y-2.5">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="text-emerald-500 font-bold">✓</span>
-            <span>Domain lolos dari verifikasi blacklist lokal (TrustPositif Kominfo & Database Keamanan).</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="text-emerald-500 font-bold">✓</span>
-            <span>Algoritma Machine Learning (ONNX) mengonfirmasi tidak adanya pola ejaan homograph mencurigakan.</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="text-emerald-500 font-bold">✓</span>
-            <span>Struktur sertifikasi SSL/HTTPS terverifikasi diterbitkan oleh lembaga resmi yang valid.</span>
-          </div>
+          {[
+            'Domain lolos dari verifikasi blacklist lokal (TrustPositif Kominfo & Database Keamanan).',
+            'Algoritma Machine Learning (ONNX) mengonfirmasi tidak adanya pola ejaan homograph mencurigakan.',
+            'Struktur sertifikasi SSL/HTTPS terverifikasi diterbitkan oleh lembaga resmi yang valid.',
+          ].map((item, i) => (
+            <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="text-emerald-500 font-bold">✓</span>
+              <span>{item}</span>
+            </div>
+          ))}
         </div>
       </div>
-
       <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-2 shadow-sm">
         <h3 className="font-bold text-xs text-emerald-500">💡 Tips Literasi Keamanan Harian:</h3>
         <ul className="list-disc pl-5 text-xs text-muted-foreground space-y-1">
@@ -984,6 +1204,7 @@ function ThreatLabSandbox({ scanContext }: { scanContext: ScanContext | null }) 
           <li>Gunakan pengelola kata sandi (Password Manager) untuk membuat sandi yang kuat dan unik di setiap situs.</li>
           <li>Jangan pernah menggunakan kembali satu kata sandi yang sama untuk beberapa situs sekaligus.</li>
         </ul>
+        <AskAIButton question="Apa tips keamanan digital paling penting yang harus diterapkan sehari-hari untuk melindungi akun dan data pribadi?" label="Minta tips lengkap dari AI →" />
       </div>
     </div>
   );
