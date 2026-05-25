@@ -347,26 +347,15 @@ async function checkThreatIntel(finalUrl, chain = []) {
   const [gsbResult, openphishResult, urlhausResult, phishtankResult, judolResult, localResult, vtResult] =
     await Promise.allSettled([
       checkGoogleSafeBrowsing(uniqueUrls),
-      isWhitelistedDomain
-        ? Promise.resolve({ openphish: false, skipped: true })
-        : checkOpenPhish(finalUrl),
-      isWhitelistedDomain
-        ? Promise.resolve({ urlhaus: false, skipped: true })
-        : checkURLhaus(domain),
-      isWhitelistedDomain
-        ? Promise.resolve({ phishtank: false, skipped: true })
-        : checkPhishTank(finalUrl),
-      isWhitelistedDomain
-        ? Promise.resolve({ judol: false, skipped: true })
-        : checkJudolBlacklist(domain, finalUrl),
-      // Skip local blacklist untuk domain whitelisted (cegah false positive)
+      checkOpenPhish(finalUrl),
+      checkURLhaus(domain),
+      checkPhishTank(finalUrl),
+      checkJudolBlacklist(domain, finalUrl),
+      // Skip local blacklist untuk domain whitelisted (cegah false positive - karena db lokal tidak cerdas)
       isWhitelistedDomain
         ? Promise.resolve({ localBlacklist: false, skipped: true })
         : checkLocalDB(finalUrl),
-      // Skip VirusTotal untuk domain whitelisted
-      isWhitelistedDomain
-        ? Promise.resolve({ virustotal: false, skipped: true })
-        : checkVirusTotal(domain, finalUrl)
+      checkVirusTotal(domain, finalUrl)
     ]);
 
 
