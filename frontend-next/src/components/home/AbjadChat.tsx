@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Mic, MicOff, Send, Bot, User, Volume2,
-  VolumeX, MessageSquare, Loader2
+  VolumeX, MessageSquare, Loader2, Maximize2, Minimize2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -87,6 +87,7 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
   const [mobileActiveTab, setMobileActiveTab] = useState<'chat' | 'lab'>('chat'); // Tab untuk tampilan mobile
   const [activeLabTopic, setActiveLabTopic] = useState<string | null>(null); // Remote control panel kanan
   const [isLabUpdating, setIsLabUpdating] = useState(false); // Animasi update panel kanan
+  const [isMaximized, setIsMaximized] = useState(true); // Default: full screen
 
   // ── Refs ───────────────────────────────────────────────────
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -206,24 +207,19 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
         }, 400);
       }
 
-      // Voice mode: prioritas Cloud TTS (Google WaveNet, jauh lebih natural)
-      //             fallback ke browser TTS jika API key tidak tersedia
-      // Chat mode:  selalu Cloud TTS untuk tombol putar ulang
-      if (ttsEnabledRef.current) {
-        if (voiceModeRef.current) {
-          if (data.audioBase64) {
-            // Cloud TTS tersedia → pakai WaveNet, restart mic setelah selesai
-            playAudio(data.audioBase64, () => {
-              if (voiceModeRef.current && !isLoadingRef.current) {
-                setTimeout(() => startVoiceListeningRef.current(), 300);
-              }
-            });
-          } else {
-            // Fallback: browser TTS jika tidak ada API key
-            speakBrowser(data.reply);
-          }
-        } else if (data.audioBase64) {
-          playAudio(data.audioBase64);
+      // Voice mode: auto-play audio (natural conversation flow)
+      // Chat mode:  TIDAK auto-play — user bisa tekan tombol "Putar ulang" jika mau
+      if (ttsEnabledRef.current && voiceModeRef.current) {
+        if (data.audioBase64) {
+          // Cloud TTS tersedia → pakai WaveNet, restart mic setelah selesai
+          playAudio(data.audioBase64, () => {
+            if (voiceModeRef.current && !isLoadingRef.current) {
+              setTimeout(() => startVoiceListeningRef.current(), 300);
+            }
+          });
+        } else {
+          // Fallback: browser TTS jika tidak ada API key
+          speakBrowser(data.reply);
         }
       }
 
@@ -552,13 +548,17 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
               className="fixed inset-0 bg-black/60 backdrop-blur-md z-50"
             />
 
-            {/* Main Full-screen Split Modal */}
+            {/* Main Split Modal — ukuran responsif berdasarkan isMaximized */}
             <motion.div
               initial={{ opacity: 0, y: 60, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 60, scale: 0.95 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed inset-x-4 top-20 bottom-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[92vw] md:max-w-6xl md:h-[85vh] md:max-h-[750px] z-50 flex flex-col bg-card rounded-3xl shadow-2xl border border-border/50 overflow-hidden"
+              className={`fixed z-50 flex flex-col bg-card shadow-2xl border border-border/50 overflow-hidden transition-all duration-300 ${
+                isMaximized
+                  ? 'inset-2 md:inset-4 rounded-2xl'
+                  : 'inset-x-4 top-20 bottom-4 md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[92vw] md:max-w-6xl md:h-[85vh] md:max-h-[750px] rounded-3xl'
+              }`}
             >
               {/* ── Header ──────────────────────────────────── */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-primary/5">
@@ -578,21 +578,21 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {/* TTS Toggle */}
+                  {/* Minimize / Maximize toggle */}
                   <button
-                    onClick={() => { setTtsEnabled(!ttsEnabled); if (isSpeaking) stopAudio(); }}
+                    onClick={() => setIsMaximized(!isMaximized)}
                     className="p-2 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
-                    title={ttsEnabled ? 'Matikan suara' : 'Nyalakan suara'}
+                    title={isMaximized ? 'Perkecil jendela' : 'Perbesar jendela'}
                   >
-                    {ttsEnabled
-                      ? <Volume2 className="w-4 h-4 text-primary" />
-                      : <VolumeX className="w-4 h-4 text-muted-foreground" />
+                    {isMaximized
+                      ? <Minimize2 className="w-4 h-4" />
+                      : <Maximize2 className="w-4 h-4" />
                     }
                   </button>
                   {/* Close */}
                   <button
                     onClick={() => { onClose(); stopListening(); stopAudio(); setVoiceMode(false); }}
-                    className="p-2 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
+                    className="p-2 rounded-xl hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer text-muted-foreground"
                   >
                     <X className="w-4 h-4" />
                   </button>
