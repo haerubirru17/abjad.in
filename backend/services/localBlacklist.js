@@ -13,6 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const whitelist = require('../data/whitelist.json');
 
 // ============================================================
 // IN-MEMORY BLACKLIST STORES
@@ -21,6 +22,15 @@ const blacklistedDomains = new Set();  // Exact domain matches
 const blacklistedUrls = new Set();     // Full URL matches
 let isLoaded = false;
 let stats = { domains: 0, urls: 0, sources: [], loadTimeMs: 0 };
+
+// Helper to check if domain is in whitelist
+function isDomainWhitelisted(hostname) {
+  if (!hostname) return false;
+  const cleanHost = hostname.toLowerCase();
+  return whitelist.some(whitelisted => {
+    return cleanHost === whitelisted || cleanHost.endsWith('.' + whitelisted);
+  });
+}
 
 // ============================================================
 // DATASET ROOT
@@ -39,7 +49,7 @@ function loadAntiGamblingDomains() {
   let count = 0;
   content.split('\n').forEach(line => {
     const domain = line.trim().toLowerCase();
-    if (domain && !domain.startsWith('#')) {
+    if (domain && !domain.startsWith('#') && !isDomainWhitelisted(domain)) {
       blacklistedDomains.add(domain);
       count++;
     }
@@ -69,8 +79,10 @@ function loadPiphisLoker() {
       if (!domain) return;
       // Bersihkan format defang: subdomain[.]domain → subdomain.domain
       domain = domain.replace(/\[\.\]/g, '.');
-      blacklistedDomains.add(domain);
-      count++;
+      if (!isDomainWhitelisted(domain)) {
+        blacklistedDomains.add(domain);
+        count++;
+      }
     });
   }
   return count;
@@ -110,7 +122,9 @@ function loadJpcertPhishUrls() {
             // Juga tambahkan domainnya
             try {
               const hostname = new URL(url).hostname;
-              blacklistedDomains.add(hostname);
+              if (!isDomainWhitelisted(hostname)) {
+                blacklistedDomains.add(hostname);
+              }
             } catch (e) { /* skip URL rusak */ }
             count++;
           }
@@ -151,7 +165,7 @@ function loadTrustPositif() {
       const content = fs.readFileSync(filePath, 'utf-8');
       content.split('\n').forEach(line => {
         const domain = line.trim().toLowerCase();
-        if (domain && !domain.startsWith('#') && !domain.startsWith('//') && domain.includes('.')) {
+        if (domain && !domain.startsWith('#') && !domain.startsWith('//') && domain.includes('.') && !isDomainWhitelisted(domain)) {
           blacklistedDomains.add(domain);
           count++;
         }
@@ -220,6 +234,21 @@ function checkLocalBlacklist(finalUrl) {
   let matchType = null;
   let matchSource = null;
 
+  // Get hostname first to check whitelist
+  let hostname = '';
+  try {
+    hostname = new URL(finalUrl).hostname.toLowerCase();
+  } catch (e) {
+    try {
+      hostname = new URL('https://' + finalUrl).hostname.toLowerCase();
+    } catch (e2) { /* skip */ }
+  }
+
+  // Jika domain whitelisted, abaikan blacklist lokal sepenuhnya untuk domain/URL tersebut
+  if (hostname && isDomainWhitelisted(hostname)) {
+    return { localBlacklist: false, checkTimeMs: Date.now() - startTime };
+  }
+
   // 1. Cek exact URL match
   const normalizedUrl = finalUrl.toLowerCase();
   if (blacklistedUrls.has(normalizedUrl)) {
@@ -229,14 +258,6 @@ function checkLocalBlacklist(finalUrl) {
 
   // 2. Cek domain match
   if (!matchType) {
-    let hostname = '';
-    try {
-      hostname = new URL(finalUrl).hostname.toLowerCase();
-    } catch (e) {
-      try {
-        hostname = new URL('https://' + finalUrl).hostname.toLowerCase();
-      } catch (e2) { /* skip */ }
-    }
 
     if (hostname && blacklistedDomains.has(hostname)) {
       matchType = 'DOMAIN_MATCH';

@@ -252,7 +252,7 @@ router.post('/', async (req, res) => {
 
     // Cek ML Lexical (ONNX in-memory, < 5ms)
     let earlyMlResult = null;
-    if (targetUrl) {
+    if (targetUrl && !isWhitelisted) {
       try {
         earlyMlResult = await onnxRunner.predictLexical(targetUrl);
         // Jika ML mendeteksi phishing dengan sangat yakin (skor 85+),

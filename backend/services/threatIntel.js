@@ -89,9 +89,22 @@ async function checkOpenPhish(finalUrl) {
 
     if (!openphishUrls) return { openphish: false };
 
-    const isMatch = openphishUrls.some(
-      phishUrl => finalUrl.includes(phishUrl) || phishUrl.includes(finalUrl)
-    );
+    const normalizeForComparison = (u) => {
+      if (!u) return '';
+      return u.toLowerCase()
+        .replace(/^https?:\/\//i, '')
+        .replace(/^www\./i, '')
+        .replace(/\/$/, '');
+    };
+
+    const normFinal = normalizeForComparison(finalUrl);
+
+    const isMatch = openphishUrls.some(phishUrl => {
+      const normPhish = normalizeForComparison(phishUrl);
+      if (!normPhish) return false;
+      // Cocok jika sama persis atau scanned URL adalah sub-path dari phishing URL
+      return normFinal === normPhish || normFinal.startsWith(normPhish + '/');
+    });
 
     return { openphish: isMatch, score: isMatch ? 50 : 0 };
   } catch (error) {
@@ -244,10 +257,18 @@ async function checkThreatIntel(finalUrl, chain = []) {
   const [gsbResult, openphishResult, urlhausResult, phishtankResult, judolResult, localResult] =
     await Promise.allSettled([
       checkGoogleSafeBrowsing(uniqueUrls),
-      checkOpenPhish(finalUrl),
-      checkURLhaus(domain),
-      checkPhishTank(finalUrl),
-      checkJudolBlacklist(domain, finalUrl),
+      isWhitelistedDomain
+        ? Promise.resolve({ openphish: false, skipped: true })
+        : checkOpenPhish(finalUrl),
+      isWhitelistedDomain
+        ? Promise.resolve({ urlhaus: false, skipped: true })
+        : checkURLhaus(domain),
+      isWhitelistedDomain
+        ? Promise.resolve({ phishtank: false, skipped: true })
+        : checkPhishTank(finalUrl),
+      isWhitelistedDomain
+        ? Promise.resolve({ judol: false, skipped: true })
+        : checkJudolBlacklist(domain, finalUrl),
       // Skip local blacklist untuk domain whitelisted (cegah false positive)
       isWhitelistedDomain
         ? Promise.resolve({ localBlacklist: false, skipped: true })
