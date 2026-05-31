@@ -440,10 +440,17 @@ async function analyzeUnified({ url, text, chain = [] }) {
 ${ url ? `URL: ${url}\nRedirect Chain: ${chainStr || 'Tidak ada redirect'}\n<url_content>${sanitizedUrl}</url_content>` : '' }
 ${ text ? `\nTeks Pesan:\n<text_content>${sanitizedText}</text_content>` : '' }
 
+Aturan Verdict URL:
+- "PHISHING": jika mengarah ke situs penipuan/pencurian data.
+- "JUDOL": jika mengarah ke situs judi online.
+- "PORNOGRAFI": jika mengarah ke situs pornografi/konten dewasa.
+- "AMAN": jika domain resmi terpercaya (seperti google.com, facebook.com, tokopedia.com).
+- "MENCURIGAKAN": jika domain mencurigakan tetapi tidak masuk kategori di atas.
+
 Output HANYA JSON berikut (jangan tambahkan markdown atau teks lain):
 {
   "url": {
-    "verdict": "PHISHING"|"JUDOL"|"AMAN"|"MENCURIGAKAN",
+    "verdict": "PHISHING"|"JUDOL"|"PORNOGRAFI"|"AMAN"|"MENCURIGAKAN",
     "confidence": 0.0-1.0,
     "brandRecognition": {
       "isKnownBrand": true/false,
@@ -542,7 +549,7 @@ URL: ${url}
 Output HANYA JSON berikut:
 {
   "url": {
-    "verdict": "PHISHING"|"JUDOL"|"AMAN"|"MENCURIGAKAN",
+    "verdict": "PHISHING"|"JUDOL"|"PORNOGRAFI"|"AMAN"|"MENCURIGAKAN",
     "confidence": 0.0-1.0,
     "brandRecognition": {
       "isKnownBrand": true/false,

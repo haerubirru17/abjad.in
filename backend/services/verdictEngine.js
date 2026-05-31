@@ -190,8 +190,9 @@ function getSenderModifier(senderContext) {
 // LANGKAH 7: Determine category
 // ============================================================
 function determineCategory(gemini, threatIntel, mlLexical, domain) {
-  // Prioritas: JUDI_ONLINE > PHISHING > MALWARE > MENCURIGAKAN
+  // Prioritas: JUDI_ONLINE > PORNOGRAFI > PHISHING > MALWARE > MENCURIGAKAN
   if (gemini?.judolSlang?.isJudol) return 'JUDI_ONLINE';
+  if (gemini?.url?.verdict === 'PORNOGRAFI') return 'PORNOGRAFI';
   if (gemini?.url?.verdict === 'PHISHING' || gemini?.socialEng?.isSocialEngineering) return 'PHISHING';
   if (mlLexical?.isPhishing && (mlLexical.confidence || 0) >= 0.85) return 'PHISHING';
   if (gemini?.url?.verdict === 'JUDOL') return 'JUDI_ONLINE';
@@ -230,6 +231,8 @@ function getVerdictDetails(score, category) {
       advice = 'Ini situs judi online ilegal. Jangan klik! Laporkan ke Kominfo: aduankonten.id';
     } else if (category === 'PHISHING') {
       advice = 'Ini link penipuan! Jangan klik! Laporkan ke IASC OJK: 157';
+    } else if (category === 'PORNOGRAFI') {
+      advice = 'Ini situs pornografi/konten dewasa yang dilarang di Indonesia. Jangan klik! Laporkan ke aduankonten.id';
     } else {
       advice = 'Link ini sangat berbahaya. Jangan klik atau buka di perangkat apapun.';
     }
@@ -341,6 +344,8 @@ function calculateVerdict(allResults, senderContext = null) {
     // Enforce minimum score for critical categories
     if (category === 'PHISHING' || category === 'JUDI_ONLINE' || category === 'MALWARE') {
       finalScore = Math.max(finalScore, 50);
+    } else if (category === 'PORNOGRAFI') {
+      finalScore = Math.max(finalScore, 95);
     }
 
     // DYNAMIC SAFETY OVERRIDE: Jika Gemini sangat yakin domain ini aman / brand resmi terpercaya,

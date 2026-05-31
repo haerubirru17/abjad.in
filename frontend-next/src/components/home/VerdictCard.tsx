@@ -38,6 +38,11 @@ const EDUCATION_DICT: Record<string, { title: string; desc: string; tip: string 
     desc: 'Link ini belum terbukti aman. Beberapa karakteristiknya cocok dengan pola penipuan, meskipun buktinya belum cukup kuat untuk dikategorikan berbahaya. Sistem kami mendeteksi anomali yang perlu kamu ketahui sebelum mengklik.',
     tip: 'Saat ragu, cari informasi resmi langsung dari website atau aplikasi resmi perusahaan, bukan dari link yang diterima via chat atau media sosial.',
   },
+  PORNOGRAFI: {
+    title: 'Mengapa Situs Pornografi / Dewasa Diblokir?',
+    desc: 'Di Indonesia, pemerintah memblokir konten pornografi melalui sistem Internet Positif berdasarkan UU ITE. Selain masalah legalitas dan norma sosial, situs dewasa adalah salah satu penyebar utama malware (virus), iklan judi terselubung, dan pemerasan berbasis kamera (camfecting) yang membahayakan privasimu.',
+    tip: 'Hindari mengunjungi situs dewasa karena mereka sering memaksa unduhan aplikasi berbahaya (.apk) atau menampilkan iklan jebakan (pop-up) yang bisa meretas akun pribadimu.',
+  },
 
   // ── Teknik URL & Domain ───────────────────────────────────────────────
   DOMAIN_TOO_YOUNG: {
@@ -355,6 +360,7 @@ export default function VerdictCard({
       PHISHING: 'Teridentifikasi Pola Phishing (Pencuri Data)',
       JUDI_ONLINE: 'Situs Judi Online (Slot / Togel)',
       MALWARE: 'Mengandung Malware / Virus',
+      PORNOGRAFI: 'Situs Pornografi / Konten Dewasa',
       MENCURIGAKAN: 'Pola Mencurigakan Terdeteksi',
     };
     technicalPills.push({
@@ -523,9 +529,13 @@ export default function VerdictCard({
   const getSocialAdvice = () => {
     const hasJudol = result.categories.some((c) => c.includes('JUDI') || c.includes('SLOT'));
     const hasPhishing = result.categories.some((c) => c.includes('PHISHING'));
+    const hasPorn = result.categories.some((c) => c.includes('PORNOGRAFI') || c.includes('PORN'));
 
     if (hasJudol) {
       return '🛑 Ini adalah situs judi online. Tolong JANGAN diklik atau dibuka.\n\nBanyak orang sudah kehilangan tabungan hidup mereka karena situs seperti ini. Kamu tidak akan pernah menang — sistemnya memang sudah diatur agar uangmu habis perlahan-lahan. Jika ada teman atau anggota keluarga yang mengirimkan link ini, tolong beritahu mereka bahwa ini berbahaya.';
+    }
+    if (hasPorn) {
+      return '🛑 Link ini mengarah ke situs pornografi / konten dewasa.\n\nSitus seperti ini diblokir oleh pemerintah Indonesia (Internet Positif) karena melanggar hukum. Selain itu, situs ini sangat berisiko menyebarkan virus/malware berbahaya ke perangkatmu melalui iklan pop-up otomatis. Jangan sekali-kali membuka link ini.';
     }
     if (hasPhishing) {
       return '🚨 Hati-hati! Ini adalah link JEBAKAN yang berpura-pura menjadi website resmi.\n\nJika kamu membuka link ini dan mengisi nama pengguna, kata sandi, atau nomor rekening, data kamu akan langsung dicuri oleh penjahat. JANGAN klik, JANGAN isi form apapun di sana. Hapus pesan yang berisi link ini sekarang juga.';
