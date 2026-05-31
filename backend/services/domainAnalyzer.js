@@ -9,7 +9,6 @@
 const { parse } = require('tldts');
 const fetch = require('node-fetch');
 const https = require('https');
-const whitelist = require('../data/whitelist.json');
 
 
 // TLD yang sering digunakan untuk phishing/scam
@@ -52,23 +51,6 @@ function extractRootDomain(hostname) {
     subdomain: parsed.subdomain || '',
     publicSuffix: parsed.publicSuffix || '',
     isKnownTLD: parsed.isIcann || false
-  };
-}
-
-// ============================================================
-// SUB-FUNGSI 2: checkWhitelist
-// ============================================================
-function checkWhitelist(hostname) {
-  if (!hostname) return { isWhitelisted: false, whitelistModifier: 0 };
-  const cleanHost = hostname.toLowerCase().trim();
-  
-  const isWhitelisted = whitelist.some(whitelisted => {
-    return cleanHost === whitelisted || cleanHost.endsWith('.' + whitelisted);
-  });
-  
-  return {
-    isWhitelisted,
-    whitelistModifier: isWhitelisted ? -50 : 0
   };
 }
 
@@ -408,40 +390,37 @@ async function analyzeDomain(url) {
   // SUB 1: Extract root domain
   const domainInfo = extractRootDomain(hostname);
 
-  // SUB 2: Check Whitelist
-  const whitelistCheck = checkWhitelist(hostname);
-
   // SUB 3: Check typosquatting
   const typoResult = checkTyposquatting(domainInfo.domain);
-  if (typoResult.isTyposquatting && !whitelistCheck.isWhitelisted) {
+  if (typoResult.isTyposquatting) {
     flags.push(`TYPOSQUATTING: mirip "${typoResult.similarTo}"`);
     totalScore += typoResult.score;
   }
 
   // SUB 4: Check suspicious TLD
   const tldResult = checkSuspiciousTLD(domainInfo.publicSuffix);
-  if (tldResult.isSuspicious && !whitelistCheck.isWhitelisted) {
+  if (tldResult.isSuspicious) {
     flags.push(`TLD_MENCURIGAKAN: .${domainInfo.publicSuffix}`);
     totalScore += tldResult.score;
   }
 
   // SUB 5: Check URL structure
   const structureResult = checkURLStructure(parsedUrl);
-  if (structureResult.anomalies.length > 0 && !whitelistCheck.isWhitelisted) {
+  if (structureResult.anomalies.length > 0) {
     flags.push(...structureResult.anomalies);
     totalScore += structureResult.score;
   }
 
   // SUB 6: Check RDAP (domain age)
   const rdapResult = await checkRDAP(domainInfo.domain);
-  if (rdapResult.score > 0 && !whitelistCheck.isWhitelisted) {
+  if (rdapResult.score > 0) {
     flags.push(`DOMAIN_MUDA: ${rdapResult.ageInDays} hari`);
     totalScore += rdapResult.score;
   }
 
   // SUB 7: Check SSL
   const sslResult = await checkSSL(hostname);
-  if (sslResult.score > 0 && !whitelistCheck.isWhitelisted) {
+  if (sslResult.score > 0) {
     const sslFlags = [];
     if (!sslResult.hasHttps) sslFlags.push('TIDAK_ADA_HTTPS');
     if (sslResult.expired) sslFlags.push('SERTIFIKAT_EXPIRED');
@@ -451,21 +430,21 @@ async function analyzeDomain(url) {
   }
 
   // Cap pada 0-100
-  totalScore = whitelistCheck.isWhitelisted ? 0 : Math.max(0, Math.min(totalScore, 100));
+  totalScore = Math.max(0, Math.min(totalScore, 100));
 
   return {
     rootDomain: domainInfo.domain,
     subdomain: domainInfo.subdomain,
-    isWhitelisted: whitelistCheck.isWhitelisted,
-    whitelistModifier: whitelistCheck.whitelistModifier,
-    isTyposquatting: whitelistCheck.isWhitelisted ? false : typoResult.isTyposquatting,
-    similarTo: whitelistCheck.isWhitelisted ? null : typoResult.similarTo,
-    isSuspiciousTLD: whitelistCheck.isWhitelisted ? false : tldResult.isSuspicious,
-    urlAnomalies: whitelistCheck.isWhitelisted ? [] : structureResult.anomalies,
+    isWhitelisted: false,
+    whitelistModifier: 0,
+    isTyposquatting: typoResult.isTyposquatting,
+    similarTo: typoResult.similarTo,
+    isSuspiciousTLD: tldResult.isSuspicious,
+    urlAnomalies: structureResult.anomalies,
     rdap: {
       ageInDays: rdapResult.ageInDays,
       country: rdapResult.country,
-      score: whitelistCheck.isWhitelisted ? 0 : rdapResult.score,
+      score: rdapResult.score,
       isDomainAgeApplicable: rdapResult.isDomainAgeApplicable
     },
     ssl: {
@@ -474,10 +453,10 @@ async function analyzeDomain(url) {
       certAgeInDays: sslResult.certAgeInDays,
       expired: sslResult.expired,
       mismatch: sslResult.mismatch,
-      score: whitelistCheck.isWhitelisted ? 0 : sslResult.score
+      score: sslResult.score
     },
     totalScore,
-    flags: whitelistCheck.isWhitelisted ? [] : flags
+    flags
   };
 }
 
@@ -488,8 +467,7 @@ module.exports = {
   checkSuspiciousTLD,
   checkURLStructure,
   checkRDAP,
-  checkSSL,
-  checkWhitelist
+  checkSSL
 };
 
 // ===== UNIT TESTS (jalankan dengan: node domainAnalyzer.js) =====
@@ -507,17 +485,7 @@ if (require.main === module) {
       desc: 'Harus handle ccTLD .co.id'
     },
     {
-      name: '2. Whitelist check (domain resmi)',
-      fn: () => checkWhitelist('tokopedia.com').isWhitelisted === true,
-      desc: 'tokopedia.com harus ada di whitelist'
-    },
-    {
-      name: '3. Whitelist check (domain palsu)',
-      fn: () => checkWhitelist('tokopediia.com').isWhitelisted === false,
-      desc: 'tokopediia.com TIDAK boleh lolos whitelist'
-    },
-    {
-      name: '4. Typosquatting detection',
+      name: '2. Typosquatting detection',
       fn: () => {
         const r = checkTyposquatting('tokoopedia.com');
         return r.isTyposquatting === true && r.similarTo === 'tokopedia';
@@ -525,17 +493,17 @@ if (require.main === module) {
       desc: 'Harus mendeteksi kemiripan dengan tokopedia'
     },
     {
-      name: '5. Suspicious TLD',
+      name: '3. Suspicious TLD',
       fn: () => checkSuspiciousTLD('xyz').isSuspicious === true,
       desc: '.xyz harus terdeteksi mencurigakan'
     },
     {
-      name: '6. Safe TLD',
+      name: '4. Safe TLD',
       fn: () => checkSuspiciousTLD('com').isSuspicious === false,
       desc: '.com tidak boleh terdeteksi mencurigakan'
     },
     {
-      name: '7. URL structure — IPv4 hostname',
+      name: '5. URL structure — IPv4 hostname',
       fn: () => {
         const parsed = new URL('http://192.168.1.1/login');
         const r = checkURLStructure(parsed);
@@ -544,7 +512,7 @@ if (require.main === module) {
       desc: 'Harus mendeteksi IP sebagai hostname'
     },
     {
-      name: '8. URL structure — @ character',
+      name: '6. URL structure — @ character',
       fn: () => {
         const parsed = new URL('https://google.com@evil.com/steal');
         const r = checkURLStructure(parsed);

@@ -196,13 +196,6 @@ function determineCategory(gemini, threatIntel, mlLexical, domain) {
   if (mlLexical?.isPhishing && (mlLexical.confidence || 0) >= 0.85) return 'PHISHING';
   if (gemini?.url?.verdict === 'JUDOL') return 'JUDI_ONLINE';
   if (gemini?.url?.verdict === 'MALWARE') return 'MALWARE';
-  
-  // Check VirusTotal flags for specific threat categories
-  const flagsStr = (threatIntel?.flags || []).join(' ').toLowerCase();
-  if (flagsStr.includes('virustotal')) {
-    if (flagsStr.includes('malware')) return 'MALWARE';
-    return 'PHISHING';
-  }
 
   return 'MENCURIGAKAN';
 }
@@ -294,48 +287,6 @@ function collectFactors(allResults) {
 function calculateVerdict(allResults, senderContext = null) {
   const scanId = uuidv4();
 
-  // LANGKAH 0: Whitelist check (Early exit)
-  const isWhitelisted = allResults.domain?.isWhitelisted === true;
-  const hasIntelOverride = allResults.threatIntel?.hasOverride === true;
-
-  if (isWhitelisted && !hasIntelOverride) {
-    const { verdict, action, emoji, advice } = getVerdictDetails(0, 'AMAN');
-    const explanation = `Domain ${allResults.domain?.rootDomain || ''} merupakan domain resmi terpercaya yang terdaftar dalam sistem.`;
-
-    return {
-      scanId,
-      fromCache: false,
-      analyzedAt: new Date().toISOString(),
-      expiredAt: new Date(Date.now() + 3600000).toISOString(),
-      score: 0,
-      rawScore: 0,
-      verdict,
-      category: 'AMAN',
-      action,
-      emoji,
-      explanation,
-      advice,
-      flags: [],
-      flagKeys: [],
-      specialBlocks: {
-        showSocialContext: false,
-        showHomographWarning: false,
-        showOpenRedirectWarning: false
-      },
-      factorsPositive: ['Domain resmi terdaftar di whitelist', 'Website menggunakan HTTPS'],
-      factorsNegative: [],
-      transparency: {
-        originalUrl: allResults.normalized?.originalUrl || null,
-        finalUrl: allResults.resolver?.finalUrl || null,
-        chain: allResults.resolver?.chain || []
-      },
-      senderContextApplied: !!senderContext,
-      gapWarning: null,
-      hasOverride: false,
-      overrideReason: null
-    };
-  }
-
   // LANGKAH 1: Critical Override
   const override = checkCriticalOverride(allResults);
 
@@ -392,7 +343,16 @@ function calculateVerdict(allResults, senderContext = null) {
       finalScore = Math.max(finalScore, 50);
     }
 
+    // DYNAMIC SAFETY OVERRIDE: Jika Gemini sangat yakin domain ini aman / brand resmi terpercaya,
+    // dan tidak ada overriding threat intelligence (GSB/VT 4+), maka paksa skor ke 0 dan category ke AMAN.
+    const isGeminiConfidentSafe = allResults.gemini?.url?.verdict === 'AMAN' && (allResults.gemini?.url?.confidence || 0) >= 0.75;
+    const isOfficialBrand = allResults.gemini?.url?.brandRecognition?.isKnownBrand === true && allResults.gemini?.url?.brandRecognition?.isOfficialDomain === true;
 
+    if ((isGeminiConfidentSafe || isOfficialBrand) && !hasOverride) {
+      finalScore = 0;
+      category = 'AMAN';
+      gapWarning = null;
+    }
   }
 
   // LANGKAH 5: Apply sender context modifier
