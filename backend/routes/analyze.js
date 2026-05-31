@@ -44,6 +44,22 @@ function extractUrls(text) {
 }
 
 /**
+ * Sanitasi pesan kesalahan agar tidak merusak estetika dan tidak memunculkan pesan teknis di frontend
+ */
+function sanitizeErrorMessage(msg) {
+  if (!msg) return 'Layanan sibuk atau tidak merespon';
+  if (typeof msg !== 'string') return 'Situs tidak merespon atau tidak dapat dijangkau';
+  const m = msg.toLowerCase();
+  if (m.includes('enotfound') || m.includes('econnrefused') || m.includes('econnreset') || m.includes('timeout') || m.includes('unreachable') || m.includes('fetch')) {
+    return 'Situs offline atau tidak dapat dijangkau';
+  }
+  if (m.includes('api key') || m.includes('auth') || m.includes('credentials') || m.includes('quota') || m.includes('429')) {
+    return 'Layanan analisis sedang sibuk. Silakan coba sesaat lagi.';
+  }
+  return msg;
+}
+
+/**
  * Hitung skor preliminary untuk menentukan apakah perlu content analysis
  */
 function calculatePrelimScore(homographResult, domainResult, intelResult) {
@@ -314,8 +330,8 @@ router.post('/', async (req, res) => {
         tp('URL Resolver', resolverResult.chain?.length > 0 ? 'hit' : 'ok',
           resolverResult.chain?.length > 0 ? `${resolverResult.chain.length} redirect ditemukan` : 'Tidak ada redirect');
       } catch (e) {
-        resolverResult.flags.push(`RESOLVE_ERROR: ${e.message}`);
-        tp('URL Resolver', 'failed', e.message);
+        resolverResult.flags.push(`RESOLVE_ERROR: ${sanitizeErrorMessage(e.message)}`);
+        tp('URL Resolver', 'failed', sanitizeErrorMessage(e.message));
       }
 
       const finalUrlResolved = resolverResult.finalUrl || targetUrl;
@@ -330,8 +346,8 @@ router.post('/', async (req, res) => {
         domainResult = domainRes.value;
         tp('Analisis Domain', 'ok', `Skor domain: ${domainResult.totalScore}`);
       } else {
-        domainResult.flags.push(`DOMAIN_ERROR: ${domainRes.reason?.message}`);
-        tp('Analisis Domain', 'failed', domainRes.reason?.message);
+        domainResult.flags.push(`DOMAIN_ERROR: ${sanitizeErrorMessage(domainRes.reason?.message)}`);
+        tp('Analisis Domain', 'failed', sanitizeErrorMessage(domainRes.reason?.message));
       }
 
       if (intelRes.status === 'fulfilled') {
@@ -412,10 +428,10 @@ router.post('/', async (req, res) => {
           geminiContent = contentResult;
           tp('Analisis Konten Halaman', 'ok', `Skor risiko konten: ${contentResult.riskScore || 0}`);
         } else {
-          tp('Analisis Konten Halaman', 'failed', contentResult.error);
+          tp('Analisis Konten Halaman', 'skipped', 'Situs offline atau tidak dapat dijangkau');
         }
       } catch (e) {
-        tp('Analisis Konten Halaman', 'failed', e.message);
+        tp('Analisis Konten Halaman', 'skipped', 'Situs offline atau tidak dapat dijangkau');
       }
     } else {
       tp('Analisis Konten Halaman', 'skipped', prelimScore <= 60 ? `Skor awal rendah (${Math.round(prelimScore)}) — tidak perlu analisis konten` : 'Tidak ada URL untuk dianalisis');

@@ -256,13 +256,6 @@ function PipelineTrace({ steps }: { steps: PipelineStep[] }) {
                 );
               })}
             </div>
-            {failedCount > 0 && (
-              <div className="px-4 py-3 bg-red-50 border-t border-red-200">
-                <p className="text-xs text-red-700 font-medium">
-                  ⚠️ {failedCount} tahap gagal. Kemungkinan API key tidak valid, kuota habis, atau timeout. Cek Cloud Run logs untuk detail.
-                </p>
-              </div>
-            )}
           </motion.div>
         )}
       </AnimatePresence>
