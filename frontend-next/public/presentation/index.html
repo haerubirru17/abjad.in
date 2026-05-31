@@ -525,7 +525,23 @@
 
     <!-- Footer Controls Help -->
     <div class="flex items-center justify-between text-[11px] text-slate-600 font-semibold border-t border-slate-900 pt-4">
-      <div></div>
+      <div class="flex items-center gap-4">
+        <!-- Audio Input File -->
+        <label for="audio-upload" class="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800 text-[10px] text-slate-400 hover:text-white hover:border-slate-700 transition-all">
+          <span>🎵</span> Load Audio
+          <input type="file" id="audio-upload" accept="audio/*" class="hidden" />
+        </label>
+        
+        <!-- Audio Player Controls -->
+        <div id="audio-controls" class="hidden flex items-center gap-3 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800">
+          <button id="play-pause-btn" class="text-teal-400 hover:text-teal-300 font-bold transition-all text-[11px] flex items-center gap-1">
+            <span id="play-icon">▶ Play</span>
+          </button>
+          <span id="audio-filename" class="text-[10px] text-slate-400 max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap font-medium">voiceover.mp3</span>
+          <span id="audio-time" class="text-[9px] text-slate-500 font-mono">00:00 / 00:00</span>
+          <div class="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse"></div>
+        </div>
+      </div>
       <div>
         Abjad.in © 2026
       </div>
@@ -545,9 +561,68 @@
       return slides[slideIndex].querySelectorAll('.reveal-item');
     }
 
+    // Audio Player Variables
+    const audioUpload = document.getElementById('audio-upload');
+    const audioControls = document.getElementById('audio-controls');
+    const playPauseBtn = document.getElementById('play-pause-btn');
+    const playIcon = document.getElementById('play-icon');
+    const audioFilename = document.getElementById('audio-filename');
+    const audioTime = document.getElementById('audio-time');
+    
+    let audio = null;
+    
+    audioUpload.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        if (audio) {
+          audio.pause();
+          audio = null;
+        }
+        audio = new Audio(URL.createObjectURL(file));
+        audioFilename.textContent = file.name;
+        audioControls.classList.remove('hidden');
+        
+        audio.addEventListener('loadedmetadata', updateTime);
+        audio.addEventListener('timeupdate', updateTime);
+        audio.addEventListener('ended', () => {
+          playIcon.textContent = '▶ Play';
+        });
+      }
+    });
+    
+    function updateTime() {
+      if (!audio) return;
+      const formatTime = (secs) => {
+        const m = Math.floor(secs / 60).toString().padStart(2, '0');
+        const s = Math.floor(secs % 60).toString().padStart(2, '0');
+        return `${m}:${s}`;
+      };
+      audioTime.textContent = `${formatTime(audio.currentTime)} / ${formatTime(audio.duration)}`;
+    }
+    
+    function togglePlay() {
+      if (!audio) return;
+      if (audio.paused) {
+        audio.play();
+        playIcon.textContent = '⏸ Pause';
+      } else {
+        audio.pause();
+        playIcon.textContent = '▶ Play';
+      }
+    }
+    
+    playPauseBtn.addEventListener('click', togglePlay);
+
     // Key event listener
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowRight' || e.key === ' ') {
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (audio) {
+          togglePlay();
+        } else {
+          nextSlide();
+        }
+      } else if (e.key === 'ArrowRight') {
         e.preventDefault();
         nextSlide();
       } else if (e.key === 'ArrowLeft') {
