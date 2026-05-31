@@ -66,3 +66,8 @@ __pycache__/
 
 # Local credentials
 .credentials
+
+# Local test scripts
+backend/test-porn.js
+CHEATSHEET.md
+
