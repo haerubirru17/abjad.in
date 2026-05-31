@@ -68,6 +68,7 @@ function detectTopicFromText(text: string): string | null {
   if (t.includes('malware') || t.includes('virus') || t.includes('spyware') || t.includes('ransomware') || t.includes('keylogger')) return 'MALWARE';
   if (t.includes('pemendek url') || t.includes('bit.ly') || t.includes('shortener') || t.includes('link pendek') || t.includes('s.id')) return 'URL_SHORTENER';
   if (t.includes('rekayasa sosial') || t.includes('social engineering') || t.includes('manipulasi psikologis') || t.includes('urgensi palsu')) return 'SOCIAL_ENGINEERING';
+  if (t.includes('tld') || t.includes('top-level domain') || t.includes('ekstensi domain') || t.includes('apa itu url') || t.includes('arti url') || t.includes('singkatan url') || t.includes('subdomain') || t.includes('protokol') || t.includes('https') || t.includes('gembok ssl') || t.includes('apa itu web') || t.includes('apa itu domain') || t.includes('struktur url') || t.includes('anatomi url')) return 'TECH_BASICS';
   return null;
 }
 
@@ -920,7 +921,7 @@ function ThreatLabSandbox({
   const { verdict, category, explanation, flags = [] } = scanContext;
 
   // ── Resolve case: topicOverride dari AI mengoverride logika default ──
-  type LabCase = 'homograph' | 'judol' | 'phishing' | 'safe' | 'malware' | 'shortener' | 'social';
+  type LabCase = 'homograph' | 'judol' | 'phishing' | 'safe' | 'malware' | 'shortener' | 'social' | 'basics';
 
   let activeCase: LabCase;
   if (activeTopicOverride) {
@@ -931,6 +932,7 @@ function ThreatLabSandbox({
       MALWARE: 'malware',
       URL_SHORTENER: 'shortener',
       SOCIAL_ENGINEERING: 'social',
+      TECH_BASICS: 'basics',
     };
     activeCase = topicMap[activeTopicOverride] ?? (verdict === 'SAFE' ? 'safe' : 'phishing');
   } else {
@@ -1206,7 +1208,114 @@ function ThreatLabSandbox({
     );
   }
 
-  // ── Case 7: SAFE ──
+  // ── Case 8: Basics (URL / Domain / SSL / TLD / IP) ──
+  if (activeCase === 'basics') {
+    const colorMap: Record<string, { bg: string; border: string; text: string }> = {
+      emerald: { bg: 'bg-emerald-500/5', border: 'border-emerald-500/10', text: 'text-emerald-500' },
+      indigo: { bg: 'bg-indigo-500/5', border: 'border-indigo-500/10', text: 'text-indigo-500' },
+      blue: { bg: 'bg-blue-500/5', border: 'border-blue-500/10', text: 'text-blue-500' },
+      purple: { bg: 'bg-purple-500/5', border: 'border-purple-500/10', text: 'text-purple-500' },
+      amber: { bg: 'bg-amber-500/5', border: 'border-amber-500/10', text: 'text-amber-500' },
+    };
+
+    return (
+      <div className="space-y-6 text-foreground">
+        <div>
+          <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">
+            Literasi Dasar: Infrastruktur Web
+          </span>
+          <h2 className="text-xl font-black mt-2 text-foreground">🔍 Anatomi & Struktur URL Website</h2>
+        </div>
+
+        {/* Anatomizer URL Visual */}
+        <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-4 shadow-sm">
+          <h3 className="font-bold text-xs text-primary flex items-center gap-2">💡 Anatomi URL: https://sub.domain.com/path</h3>
+          <div className="flex flex-wrap items-center gap-1 font-mono text-[10px] sm:text-xs bg-muted/50 p-3 rounded-xl justify-center">
+            <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-bold" title="Protokol Keamanan (SSL/HTTPS)">https://</span>
+            <span className="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 font-bold" title="Subdomain">sub.</span>
+            <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 border border-blue-500/20 font-bold" title="Domain Utama">domain</span>
+            <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 border border-purple-500/20 font-bold" title="Top-Level Domain (TLD)">.com</span>
+            <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20 font-bold" title="Path / Jalur Halaman">/path</span>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Sama seperti alamat rumah Anda (Negara → Kota → Jalan → Nomor), alamat website (URL) memiliki struktur teratur yang membantu komputermu mencari server tujuan tanpa tersesat.
+          </p>
+        </div>
+
+        {/* Breakdown Komponen URL */}
+        <div className="space-y-2">
+          {[
+            {
+              term: '1. Protokol (https:// vs http://)',
+              desc: 'Aturan komunikasi data. HTTPS (dengan "S" = Secure) berarti koneksi dienkripsi dengan SSL (ikon gembok). http:// tanpa enkripsi sangat rawan disadap.',
+              color: 'emerald',
+            },
+            {
+              term: '2. Subdomain (contoh: sub.)',
+              desc: 'Sub-bagian dari domain utama. Penipu sering memanfaatkannya untuk menyamarkan domain asli (contoh: login.klikbca.com.penipu.xyz — domain aslinya adalah penipu.xyz, bukan klikbca.com).',
+              color: 'indigo',
+            },
+            {
+              term: '3. Domain Utama',
+              desc: 'Identitas utama website (seperti tokopedia, google, bca). Bagian ini harus didaftarkan dan dibayar secara resmi untuk kepemilikan.',
+              color: 'blue',
+            },
+            {
+              term: '4. TLD (Top-Level Domain / Ekstensi)',
+              desc: 'Akhiran domain. TLD resmi lokal seperti .go.id (pemerintah) atau .ac.id (kampus) diawasi ketat. TLD murah seperti .xyz, .top, atau .win sering dibeli massal oleh peretas.',
+              color: 'purple',
+            },
+            {
+              term: '5. Path / Jalur Halaman (contoh: /path)',
+              desc: 'Lokasi folder spesifik di server. Contoh: /login atau /promo.',
+              color: 'amber',
+            },
+          ].map((item, i) => {
+            const clr = colorMap[item.color] || colorMap.blue;
+            return (
+              <div key={i} className={`p-3.5 rounded-xl ${clr.bg} border ${clr.border}`}>
+                <span className={`text-xs font-bold ${clr.text} block mb-1`}>{item.term}</span>
+                <p className="text-xs text-muted-foreground leading-relaxed">{item.desc}</p>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Tanya AI */}
+        <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-2 shadow-sm">
+          <h3 className="font-bold text-xs text-primary">Tanya lebih lanjut seputar dasar web:</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              onClick={() => onAskAbout('Jelaskan apa bedanya HTTP dan HTTPS secara teknis dan apa risikonya jika mengakses http?')}
+              className="px-3 py-2 text-[10px] text-left text-muted-foreground hover:text-foreground bg-muted/40 hover:bg-muted/70 rounded-lg transition-all"
+            >
+              💬 Apa bedanya HTTP vs HTTPS?
+            </button>
+            <button
+              onClick={() => onAskAbout('Bagaimana cara membedakan mana subdomain dan mana domain utama pada link yang panjang agar tidak tertipu?')}
+              className="px-3 py-2 text-[10px] text-left text-muted-foreground hover:text-foreground bg-muted/40 hover:bg-muted/70 rounded-lg transition-all"
+            >
+              💬 Cara bedakan domain & subdomain?
+            </button>
+            <button
+              onClick={() => onAskAbout('Apa saja jenis-jenis TLD (ekstensi domain) di Indonesia yang diawasi ketat pemerintah dan mana yang berisiko tinggi?')}
+              className="px-3 py-2 text-[10px] text-left text-muted-foreground hover:text-foreground bg-muted/40 hover:bg-muted/70 rounded-lg transition-all"
+            >
+              💬 Jenis-jenis TLD (Ekstensi Domain)
+            </button>
+            <button
+              onClick={() => onAskAbout('Apa itu Alamat IP (IP Address) dan hubungannya dengan nama domain di internet?')}
+              className="px-3 py-2 text-[10px] text-left text-muted-foreground hover:text-foreground bg-muted/40 hover:bg-muted/70 rounded-lg transition-all"
+            >
+              💬 Hubungan Domain & Alamat IP
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Case 9: SAFE ──
   return (
     <div className="space-y-6 text-foreground">
       <div>
