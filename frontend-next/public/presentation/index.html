@@ -34,33 +34,51 @@
       color: #f3f4f6;
       overflow: hidden;
     }
+    .slides-container {
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr;
+      width: 100%;
+      height: 100%;
+      align-items: center;
+      justify-content: center;
+    }
     .slide {
-      display: none;
+      grid-area: 1 / 1 / 2 / 2;
       opacity: 0;
-      transition: opacity 0.8s ease-in-out;
+      pointer-events: none;
+      transform: scale(0.97) translateY(15px);
+      transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     }
     .slide.active {
-      display: flex;
       opacity: 1;
+      pointer-events: auto;
+      transform: scale(1) translateY(0);
     }
     .reveal-item {
       opacity: 0;
-      transform: translateY(20px);
-      transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      transform: scale(0.9) translateY(25px);
+      transition: opacity 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
     .reveal-item.show {
       opacity: 1;
-      transform: translateY(0);
+      transform: scale(1) translateY(0);
     }
     .neon-pulse {
-      animation: neonPulse 2s infinite alternate;
+      animation: neonPulse 2.5s infinite alternate ease-in-out;
     }
     @keyframes neonPulse {
       from {
         text-shadow: 0 0 10px rgba(15, 118, 110, 0.4), 0 0 20px rgba(15, 118, 110, 0.2);
+        transform: scale(1);
       }
       to {
-        text-shadow: 0 0 20px rgba(15, 118, 110, 0.8), 0 0 30px rgba(15, 118, 110, 0.4), 0 0 40px rgba(15, 118, 110, 0.2);
+        text-shadow: 0 0 20px rgba(15, 118, 110, 0.8), 0 0 30px rgba(15, 118, 110, 0.4), 0 0 45px rgba(15, 118, 110, 0.2);
+        transform: scale(1.02);
       }
     }
     .glow-orange {
@@ -88,30 +106,80 @@
     </div>
 
     <!-- Slides Wrapper -->
-    <div class="flex-1 flex items-center justify-center">
+    <div class="flex-1 slides-container">
 
       <!-- SLIDE 1: INTRO (Layar Hitam + Fake Notifications) -->
-      <div class="slide active w-full max-w-4xl flex-col items-center justify-center text-center relative" id="slide-0">
-        <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight text-white mb-6">
-          Abjad<span class="text-primary">.in</span>
+      <div class="slide active w-full flex flex-col items-center justify-center text-center relative" id="slide-0">
+        <h1 class="text-6xl md:text-8xl font-extrabold tracking-tight text-white mb-6 relative z-10">
+          Abjad<span class="text-teal-500">.in</span>
         </h1>
-        <p class="text-slate-500 text-lg md:text-xl font-medium tracking-wide">
+        <p class="text-slate-500 text-lg md:text-2xl font-semibold tracking-wide relative z-10">
           Baca Dulu, Baru Klik.
         </p>
 
-        <!-- Container for revealable chat notification bubbles -->
-        <div class="absolute inset-0 flex flex-col justify-center items-center pointer-events-none gap-4">
-          <!-- Bubble 1 -->
-          <div class="reveal-item absolute top-[15%] left-[5%] md:left-[15%] bg-rose-950/80 border border-rose-500/40 text-rose-300 px-4 py-3 rounded-2xl text-xs md:text-sm font-semibold max-w-xs shadow-lg shadow-rose-950/30">
-            💬 "Selamat! Nomor Anda terpilih pemenang Hadiah 100jt..."
+        <!-- Left side absolute notifications container -->
+        <div class="absolute left-[2%] md:left-[5%] top-0 bottom-0 w-[260px] md:w-[320px] flex flex-col justify-center gap-6 pointer-events-none z-20">
+          <!-- Bubble 1: WA Shopee -->
+          <div class="reveal-item p-4 rounded-2xl bg-slate-950/80 backdrop-blur-md border border-emerald-500/20 text-left shadow-[0_8px_32px_rgba(0,0,0,0.6)]">
+            <div class="flex items-center gap-2 mb-2 text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              WhatsApp • HRD Shopee
+            </div>
+            <p class="text-xs md:text-sm font-bold text-slate-100 mb-1">🎁 Promo Hadiah 100 Juta</p>
+            <p class="text-xs text-slate-400 leading-relaxed">"Selamat! Nomor Anda beruntung memenangkan hadiah Shopee. Klaim di: shopee-undian.xyz"</p>
           </div>
-          <!-- Bubble 2 -->
-          <div class="reveal-item absolute bottom-[20%] right-[5%] md:right-[15%] bg-amber-950/80 border border-amber-500/40 text-amber-300 px-4 py-3 rounded-2xl text-xs md:text-sm font-semibold max-w-xs shadow-lg shadow-amber-950/30">
-            💬 "PENTING: Verifikasi Livin Mandiri Anda sebelum terblokir..."
+
+          <!-- Bubble 3: APK Kurir -->
+          <div class="reveal-item p-4 rounded-2xl bg-slate-950/80 backdrop-blur-md border border-amber-500/20 text-left shadow-[0_8px_32px_rgba(0,0,0,0.6)]">
+            <div class="flex items-center gap-2 mb-2 text-[10px] text-amber-400 font-bold uppercase tracking-wider">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+              SMS • Paket J&T
+            </div>
+            <p class="text-xs md:text-sm font-bold text-slate-100 mb-1">📦 Hambatan Pengiriman</p>
+            <p class="text-xs text-slate-400 leading-relaxed">"Paket Anda gagal dikirim karena alamat tidak jelas. Unduh aplikasi berikut untuk detail: jnt-lacak.apk"</p>
           </div>
-          <!-- Bubble 3 -->
-          <div class="reveal-item absolute top-[70%] left-[8%] md:left-[20%] bg-rose-950/80 border border-rose-500/40 text-rose-300 px-4 py-3 rounded-2xl text-xs md:text-sm font-semibold max-w-xs shadow-lg shadow-rose-950/30">
-            📦 "Paket J&T gagal terkirim. Klik link untuk update: bit.ly/..."
+
+          <!-- Bubble 5: Bansos BPJS -->
+          <div class="reveal-item p-4 rounded-2xl bg-slate-950/80 backdrop-blur-md border border-rose-500/20 text-left shadow-[0_8px_32px_rgba(0,0,0,0.6)]">
+            <div class="flex items-center gap-2 mb-2 text-[10px] text-rose-400 font-bold uppercase tracking-wider">
+              <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
+              SMS • Kemensos RI
+            </div>
+            <p class="text-xs md:text-sm font-bold text-slate-100 mb-1">💳 Dana Bansos BPJS</p>
+            <p class="text-xs text-slate-400 leading-relaxed">"Anda berhak mendapatkan bantuan sosial BPJS Kesehatan sebesar Rp 5.000.000. Lakukan pencairan di..."</p>
+          </div>
+        </div>
+
+        <!-- Right side absolute notifications container -->
+        <div class="absolute right-[2%] md:right-[5%] top-0 bottom-0 w-[260px] md:w-[320px] flex flex-col justify-center gap-6 pointer-events-none z-20">
+          <!-- Bubble 2: SMS Mandiri -->
+          <div class="reveal-item p-4 rounded-2xl bg-slate-950/80 backdrop-blur-md border border-blue-500/20 text-left shadow-[0_8px_32px_rgba(0,0,0,0.6)]">
+            <div class="flex items-center gap-2 mb-2 text-[10px] text-blue-400 font-bold uppercase tracking-wider">
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
+              M-Info • Bank Mandiri
+            </div>
+            <p class="text-xs md:text-sm font-bold text-slate-100 mb-1">⚠️ Peringatan Keamanan</p>
+            <p class="text-xs text-slate-400 leading-relaxed">"PENTING: Akun Livin Mandiri Anda terdeteksi akses tidak sah. Segera ganti PIN Anda di: bаnkmаndiri.co.id"</p>
+          </div>
+
+          <!-- Bubble 4: Telegram Slot -->
+          <div class="reveal-item p-4 rounded-2xl bg-slate-950/80 backdrop-blur-md border border-cyan-500/20 text-left shadow-[0_8px_32px_rgba(0,0,0,0.6)]">
+            <div class="flex items-center gap-2 mb-2 text-[10px] text-cyan-400 font-bold uppercase tracking-wider">
+              <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+              Telegram • Admin Slot88
+            </div>
+            <p class="text-xs md:text-sm font-bold text-slate-100 mb-1">🎰 Slot Gacor Maxwin</p>
+            <p class="text-xs text-slate-400 leading-relaxed">"RTP tertinggi hari ini 98%. Pola petir merah scatter hitam pasti WD lancar. Join link alternatif..."</p>
+          </div>
+
+          <!-- Bubble 6: Loker Palsu -->
+          <div class="reveal-item p-4 rounded-2xl bg-slate-950/80 backdrop-blur-md border border-purple-500/20 text-left shadow-[0_8px_32px_rgba(0,0,0,0.6)]">
+            <div class="flex items-center gap-2 mb-2 text-[10px] text-purple-400 font-bold uppercase tracking-wider">
+              <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
+              WhatsApp • HR Kerja Paruh Waktu
+            </div>
+            <p class="text-xs md:text-sm font-bold text-slate-100 mb-1">💼 Lowongan Kerja Freelance</p>
+            <p class="text-xs text-slate-400 leading-relaxed">"Butuh pekerjaan sampingan dari rumah? Cukup like & subscribe dapat Rp 500.000 per hari. Hubungi kami di..."</p>
           </div>
         </div>
       </div>
