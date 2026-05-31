@@ -294,6 +294,48 @@ function collectFactors(allResults) {
 function calculateVerdict(allResults, senderContext = null) {
   const scanId = uuidv4();
 
+  // LANGKAH 0: Whitelist check (Early exit)
+  const isWhitelisted = allResults.domain?.isWhitelisted === true;
+  const hasIntelOverride = allResults.threatIntel?.hasOverride === true;
+
+  if (isWhitelisted && !hasIntelOverride) {
+    const { verdict, action, emoji, advice } = getVerdictDetails(0, 'AMAN');
+    const explanation = `Domain ${allResults.domain?.rootDomain || ''} merupakan domain resmi terpercaya yang terdaftar dalam sistem.`;
+
+    return {
+      scanId,
+      fromCache: false,
+      analyzedAt: new Date().toISOString(),
+      expiredAt: new Date(Date.now() + 3600000).toISOString(),
+      score: 0,
+      rawScore: 0,
+      verdict,
+      category: 'AMAN',
+      action,
+      emoji,
+      explanation,
+      advice,
+      flags: [],
+      flagKeys: [],
+      specialBlocks: {
+        showSocialContext: false,
+        showHomographWarning: false,
+        showOpenRedirectWarning: false
+      },
+      factorsPositive: ['Domain resmi terdaftar di whitelist', 'Website menggunakan HTTPS'],
+      factorsNegative: [],
+      transparency: {
+        originalUrl: allResults.normalized?.originalUrl || null,
+        finalUrl: allResults.resolver?.finalUrl || null,
+        chain: allResults.resolver?.chain || []
+      },
+      senderContextApplied: !!senderContext,
+      gapWarning: null,
+      hasOverride: false,
+      overrideReason: null
+    };
+  }
+
   // LANGKAH 1: Critical Override
   const override = checkCriticalOverride(allResults);
 

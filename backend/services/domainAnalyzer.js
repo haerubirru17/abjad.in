@@ -9,6 +9,7 @@
 const { parse } = require('tldts');
 const fetch = require('node-fetch');
 const https = require('https');
+const whitelist = require('../data/whitelist.json');
 
 
 // TLD yang sering digunakan untuk phishing/scam
@@ -54,7 +55,22 @@ function extractRootDomain(hostname) {
   };
 }
 
-
+// ============================================================
+// SUB-FUNGSI 2: checkWhitelist
+// ============================================================
+function checkWhitelist(hostname) {
+  if (!hostname) return { isWhitelisted: false, whitelistModifier: 0 };
+  const cleanHost = hostname.toLowerCase().trim();
+  
+  const isWhitelisted = whitelist.some(whitelisted => {
+    return cleanHost === whitelisted || cleanHost.endsWith('.' + whitelisted);
+  });
+  
+  return {
+    isWhitelisted,
+    whitelistModifier: isWhitelisted ? -50 : 0
+  };
+}
 
 // ============================================================
 // SUB-FUNGSI 3: checkTyposquatting (Levenshtein distance)
@@ -392,39 +408,40 @@ async function analyzeDomain(url) {
   // SUB 1: Extract root domain
   const domainInfo = extractRootDomain(hostname);
 
-
+  // SUB 2: Check Whitelist
+  const whitelistCheck = checkWhitelist(hostname);
 
   // SUB 3: Check typosquatting
   const typoResult = checkTyposquatting(domainInfo.domain);
-  if (typoResult.isTyposquatting) {
+  if (typoResult.isTyposquatting && !whitelistCheck.isWhitelisted) {
     flags.push(`TYPOSQUATTING: mirip "${typoResult.similarTo}"`);
     totalScore += typoResult.score;
   }
 
   // SUB 4: Check suspicious TLD
   const tldResult = checkSuspiciousTLD(domainInfo.publicSuffix);
-  if (tldResult.isSuspicious) {
+  if (tldResult.isSuspicious && !whitelistCheck.isWhitelisted) {
     flags.push(`TLD_MENCURIGAKAN: .${domainInfo.publicSuffix}`);
     totalScore += tldResult.score;
   }
 
   // SUB 5: Check URL structure
   const structureResult = checkURLStructure(parsedUrl);
-  if (structureResult.anomalies.length > 0) {
+  if (structureResult.anomalies.length > 0 && !whitelistCheck.isWhitelisted) {
     flags.push(...structureResult.anomalies);
     totalScore += structureResult.score;
   }
 
   // SUB 6: Check RDAP (domain age)
   const rdapResult = await checkRDAP(domainInfo.domain);
-  if (rdapResult.score > 0) {
+  if (rdapResult.score > 0 && !whitelistCheck.isWhitelisted) {
     flags.push(`DOMAIN_MUDA: ${rdapResult.ageInDays} hari`);
     totalScore += rdapResult.score;
   }
 
   // SUB 7: Check SSL
   const sslResult = await checkSSL(hostname);
-  if (sslResult.score > 0) {
+  if (sslResult.score > 0 && !whitelistCheck.isWhitelisted) {
     const sslFlags = [];
     if (!sslResult.hasHttps) sslFlags.push('TIDAK_ADA_HTTPS');
     if (sslResult.expired) sslFlags.push('SERTIFIKAT_EXPIRED');
@@ -433,24 +450,22 @@ async function analyzeDomain(url) {
     totalScore += sslResult.score;
   }
 
-
-
   // Cap pada 0-100
-  totalScore = Math.max(0, Math.min(totalScore, 100));
+  totalScore = whitelistCheck.isWhitelisted ? 0 : Math.max(0, Math.min(totalScore, 100));
 
   return {
     rootDomain: domainInfo.domain,
     subdomain: domainInfo.subdomain,
-    isWhitelisted: false,
-    whitelistModifier: 0,
-    isTyposquatting: typoResult.isTyposquatting,
-    similarTo: typoResult.similarTo,
-    isSuspiciousTLD: tldResult.isSuspicious,
-    urlAnomalies: structureResult.anomalies,
+    isWhitelisted: whitelistCheck.isWhitelisted,
+    whitelistModifier: whitelistCheck.whitelistModifier,
+    isTyposquatting: whitelistCheck.isWhitelisted ? false : typoResult.isTyposquatting,
+    similarTo: whitelistCheck.isWhitelisted ? null : typoResult.similarTo,
+    isSuspiciousTLD: whitelistCheck.isWhitelisted ? false : tldResult.isSuspicious,
+    urlAnomalies: whitelistCheck.isWhitelisted ? [] : structureResult.anomalies,
     rdap: {
       ageInDays: rdapResult.ageInDays,
       country: rdapResult.country,
-      score: rdapResult.score,
+      score: whitelistCheck.isWhitelisted ? 0 : rdapResult.score,
       isDomainAgeApplicable: rdapResult.isDomainAgeApplicable
     },
     ssl: {
@@ -459,10 +474,10 @@ async function analyzeDomain(url) {
       certAgeInDays: sslResult.certAgeInDays,
       expired: sslResult.expired,
       mismatch: sslResult.mismatch,
-      score: sslResult.score
+      score: whitelistCheck.isWhitelisted ? 0 : sslResult.score
     },
     totalScore,
-    flags
+    flags: whitelistCheck.isWhitelisted ? [] : flags
   };
 }
 
@@ -473,7 +488,8 @@ module.exports = {
   checkSuspiciousTLD,
   checkURLStructure,
   checkRDAP,
-  checkSSL
+  checkSSL,
+  checkWhitelist
 };
 
 // ===== UNIT TESTS (jalankan dengan: node domainAnalyzer.js) =====
