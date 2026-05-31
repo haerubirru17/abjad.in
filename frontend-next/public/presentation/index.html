@@ -248,9 +248,40 @@
           <div class="reveal-item p-6 rounded-2xl border border-slate-800 bg-slate-900/10 flex flex-col items-center">
             <div class="text-3xl mb-3">🔗</div>
             <h3 class="font-bold text-white mb-2 text-sm md:text-base">Input Link / URL</h3>
-            <!-- Browser Input Mockup -->
-            <div class="w-full mt-2 p-3 rounded-xl bg-slate-950 border border-slate-800 text-left font-mono text-[10px] text-rose-500 overflow-hidden text-ellipsis whitespace-nowrap">
-              <span class="text-slate-600">URL:</span> https://shopee-promo-hadiah.xyz
+            <!-- Browser Window Mockup -->
+            <div class="w-full mt-2 rounded-xl overflow-hidden border border-slate-800 bg-slate-950 flex flex-col text-left">
+              <!-- Browser Top Bar -->
+              <div class="bg-slate-900 px-3 py-2 flex items-center gap-1.5 border-b border-slate-800">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                <!-- Address bar -->
+                <div class="flex-1 ml-2 bg-slate-950 border border-rose-500/30 rounded-md py-0.5 px-2 text-[9px] font-mono text-rose-500 flex items-center gap-1 overflow-hidden whitespace-nowrap text-ellipsis">
+                  <span class="text-slate-500">https://</span>shopee-promo-hadiah.xyz
+                </div>
+              </div>
+              <!-- Browser Viewport / Analysis Info -->
+              <div class="p-3 text-[9px] font-mono text-slate-400 space-y-1.5">
+                <div class="flex justify-between items-center text-rose-400">
+                  <span>🔍 DNS CHECK</span>
+                  <span class="font-bold">FAILED</span>
+                </div>
+                <div class="h-[1px] bg-slate-900"></div>
+                <div class="flex justify-between items-center text-amber-400">
+                  <span>📅 DOMAIN AGE</span>
+                  <span class="font-bold">1 DAY OLD</span>
+                </div>
+                <div class="h-[1px] bg-slate-900"></div>
+                <div class="flex justify-between items-center text-rose-400">
+                  <span>🛡️ SSL STATUS</span>
+                  <span class="font-bold">NO CERTIFICATE</span>
+                </div>
+                <div class="h-[1px] bg-slate-900"></div>
+                <div class="flex justify-between items-center text-rose-500 font-bold bg-rose-950/20 px-1 py-0.5 rounded border border-rose-500/10 mt-1 animate-pulse">
+                  <span>VERDICT:</span>
+                  <span>HIGH-RISK SCAM</span>
+                </div>
+              </div>
             </div>
             <p class="text-[11px] text-slate-400 mt-4 text-center leading-relaxed">Mendeteksi reputasi domain, usia WHOIS, data DNS, dan kecurigaan TLD murah secara instan.</p>
           </div>
@@ -259,10 +290,30 @@
           <div class="reveal-item p-6 rounded-2xl border border-slate-800 bg-slate-900/10 flex flex-col items-center">
             <div class="text-3xl mb-3">💬</div>
             <h3 class="font-bold text-white mb-2 text-sm md:text-base">Teks Chat / Pesan</h3>
-            <!-- SMS Message Mockup -->
-            <div class="w-full mt-2 p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-left relative min-h-[50px] flex flex-col justify-center">
-              <div class="bg-rose-950/40 text-rose-300 text-[9px] p-2 rounded-xl rounded-tl-none self-start max-w-[95%] border border-rose-500/10 leading-normal">
-                "Kirim kode OTP Anda untuk verifikasi pencairan hadiah..."
+            <!-- WhatsApp Mobile UI Mockup -->
+            <div class="w-full mt-2 rounded-xl overflow-hidden border border-slate-800 bg-[#080c14] flex flex-col text-left">
+              <!-- WhatsApp Header -->
+              <div class="bg-slate-900 px-3 py-2 flex items-center justify-between border-b border-slate-800">
+                <div class="flex items-center gap-1.5">
+                  <div class="w-4 h-4 rounded-full bg-slate-700 flex items-center justify-center text-[8px] text-white">👤</div>
+                  <span class="text-[9px] font-bold text-slate-200">+62 821-4431-2900</span>
+                </div>
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              </div>
+              <!-- WhatsApp Chat Area -->
+              <div class="p-3 space-y-2 flex-1 min-h-[110px] flex flex-col justify-between">
+                <!-- Incoming scam message -->
+                <div class="bg-rose-950/40 border border-rose-500/20 text-[9px] text-rose-200 p-2 rounded-xl rounded-tl-none self-start max-w-[95%] leading-normal relative">
+                  Selamat! Rekening anda mendapatkan dana bansos <span class="bg-rose-500/20 px-0.5 rounded border border-rose-500/40 text-white">Rp 5.000.000</span>. Segera klaim dan verifikasi <span class="bg-rose-500/20 px-0.5 rounded border border-rose-500/40 text-white">OTP</span> anda di: bansos-bpjs.xyz
+                  <!-- Tag overlay markers -->
+                  <div class="absolute -right-2 -bottom-2 bg-rose-500 text-white font-extrabold text-[7px] px-1 rounded shadow-md border border-slate-900">SOCIAL ENG.</div>
+                </div>
+                
+                <!-- AI extraction indicator -->
+                <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-900 text-[8px] text-slate-500 font-mono">
+                  <span>AI CLASSIFIER:</span>
+                  <span class="text-rose-500 font-bold animate-pulse">PHISHING DETECTED (98%)</span>
+                </div>
               </div>
             </div>
             <p class="text-[11px] text-slate-400 mt-4 text-center leading-relaxed">Menganalisa rekayasa sosial, ancaman siber, hoaks, atau pola promosi judi online pada teks.</p>
@@ -272,12 +323,32 @@
           <div class="reveal-item p-6 rounded-2xl border border-slate-800 bg-slate-900/10 flex flex-col items-center">
             <div class="text-3xl mb-3">📸</div>
             <h3 class="font-bold text-white mb-2 text-sm md:text-base">Unggah Gambar / Screenshot</h3>
-            <!-- File Scan Mockup -->
-            <div class="w-full mt-2 p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center min-h-[50px] relative overflow-hidden">
-              <div class="border border-dashed border-teal-500/50 text-[9px] text-teal-400 font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                <span>📂</span> loker-gaji-harian.png
-              </div>
+            <!-- Screenshot File Upload & Scanning Mockup -->
+            <div class="w-full mt-2 rounded-xl border border-slate-800 bg-slate-950 p-2.5 flex flex-col text-left relative overflow-hidden min-h-[148px]">
+              <!-- Scanline overlay (teal neon moving up and down) -->
               <div class="scan-line"></div>
+              <!-- Mock image showing a fake promo voucher -->
+              <div class="w-full bg-[#0a0f1d] border border-slate-900 rounded-lg p-2 flex flex-col items-center gap-1.5 relative z-10">
+                <!-- Coupon/Flyer Graphic -->
+                <div class="w-full bg-slate-900 border-2 border-dashed border-rose-500/40 rounded p-1.5 text-center relative">
+                  <!-- OCR Highlight boxes -->
+                  <div class="absolute inset-x-2 top-1.5 h-3 bg-teal-500/20 border border-teal-400 rounded-sm"></div>
+                  <div class="absolute inset-x-4 top-5 h-3 bg-teal-500/20 border border-teal-400 rounded-sm"></div>
+                  
+                  <div class="text-[8px] font-extrabold text-rose-500 tracking-wider">PROMO UNDIAN HADIAH</div>
+                  <div class="text-[6px] text-slate-400 font-mono mt-0.5">https://shopee-undian-100jt.xyz</div>
+                </div>
+                <!-- OCR scan result block -->
+                <div class="w-full flex items-center justify-between text-[7px] font-mono text-slate-500 mt-0.5">
+                  <span>[OCR] EXTRACTED URL</span>
+                  <span class="text-teal-400 font-bold">SUCCESS (100%)</span>
+                </div>
+              </div>
+              <!-- Scanning status -->
+              <div class="flex items-center justify-between text-[8px] font-mono text-teal-400 mt-auto pt-1 relative z-10">
+                <span>STATUS: EXAMINING</span>
+                <span class="animate-pulse flex items-center gap-0.5">🟢 ACTIVE</span>
+              </div>
             </div>
             <p class="text-[11px] text-slate-400 mt-4 text-center leading-relaxed">Mengekstraksi teks (OCR) atau QR code dari screenshot chat atau pamflet digital mencurigakan.</p>
           </div>
@@ -290,42 +361,116 @@
         <h2 class="text-3xl md:text-5xl font-extrabold text-white mb-8 tracking-tight">Inovasi Pendeteksi Homograph & Gemini AI</h2>
         
         <div class="grid md:grid-cols-2 gap-8">
-          <!-- Left side: Homograph animation mock -->
-          <div class="reveal-item p-6 rounded-2xl border border-slate-800 bg-slate-950 flex flex-col justify-center items-center text-center">
-            <p class="text-xs font-semibold text-slate-500 mb-3">Visual Serangan Homograph</p>
-            <div class="text-xl font-bold bg-slate-900 px-4 py-2.5 rounded-xl border border-slate-800 tracking-wide mb-4">
-              sh<span class="text-rose-500 underline font-extrabold animate-pulse">о</span>pee.co.id
+          <!-- Left side: Homograph comparison dashboard -->
+          <div class="reveal-item p-6 rounded-2xl border border-slate-800 bg-slate-950 flex flex-col justify-between min-h-[300px]">
+            <div>
+              <span class="text-[9px] font-bold text-rose-500 tracking-wider uppercase mb-1 block">Homograph Bypass Attack</span>
+              <h3 class="font-bold text-white text-sm md:text-base text-left mb-4">Deteksi Karakter Serupa (Homoglyph)</h3>
             </div>
-            <p class="text-xs text-slate-400 mb-2">Huruf "о" di atas sebenarnya adalah aksara Cyrillic</p>
-            <p class="text-[10px] text-teal-400 font-mono">Punycode: xn--shpee-e1a.co.id</p>
+            
+            <!-- Comparison panel -->
+            <div class="space-y-3 font-mono text-[9px] text-left">
+              <!-- Authentic check -->
+              <div class="bg-slate-900 border border-slate-800 p-2.5 rounded-xl flex flex-col gap-1.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-500 font-semibold">Tautan Asli:</span>
+                  <span class="text-emerald-400 font-bold bg-emerald-950/30 border border-emerald-500/20 px-1.5 py-0.5 rounded">VALID</span>
+                </div>
+                <div class="text-xs font-bold text-white">shopee.co.id</div>
+                <div class="text-[8px] text-slate-500">Karakter 'o' = Latin U+006F</div>
+              </div>
+              
+              <!-- Spoofed check -->
+              <div class="bg-slate-900 border border-slate-800 p-2.5 rounded-xl flex flex-col gap-1.5 relative overflow-hidden">
+                <div class="absolute -right-3 -top-3 w-10 h-10 bg-rose-500/10 rotate-45 flex items-end justify-center pb-1">
+                  <span class="text-[7px] text-rose-400 font-bold">SCAM</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-500 font-semibold">Tautan Palsu:</span>
+                  <span class="text-rose-400 font-bold bg-rose-950/30 border border-rose-500/20 px-1.5 py-0.5 rounded">DETEKSI</span>
+                </div>
+                <div class="text-xs font-bold text-white">
+                  sh<span class="text-rose-500 underline font-extrabold animate-pulse">о</span>pee.co.id
+                </div>
+                <div class="text-[8px] text-slate-500">Karakter 'о' = Cyrillic U+043E (Tiruan)</div>
+              </div>
+            </div>
+            
+            <!-- Punycode indicator -->
+            <div class="bg-[#0b101c] border border-slate-900 p-2 rounded-xl mt-3 text-left">
+              <div class="text-[8px] font-bold text-slate-500">SISTEM KONVERSI PUNYCODE:</div>
+              <div class="text-[10px] font-bold text-teal-400 font-mono tracking-wider mt-0.5">xn--shpee-e1a.co.id</div>
+            </div>
           </div>
 
           <!-- Right side: Gemini AI Visual Mockups -->
-          <div class="reveal-item flex flex-col justify-center gap-4">
-            <!-- Mock 1: Whitelist Override -->
-            <div class="p-4 rounded-2xl bg-slate-900/20 border border-slate-800 flex items-center justify-between gap-4">
-              <div class="flex-1 text-left">
-                <h4 class="font-bold text-white text-xs mb-1">Gemini AI Smart Override</h4>
-                <p class="text-[10px] text-slate-400 leading-normal">Mengenali brand resmi terpercaya secara dinamis guna meminimalkan false-positive.</p>
+          <div class="reveal-item flex flex-col gap-4">
+            
+            <!-- Gemini Smart Whitelist Override -->
+            <div class="p-5 rounded-2xl bg-slate-900/20 border border-slate-800 flex flex-col gap-3">
+              <div class="flex items-center gap-2">
+                <span class="text-xl">🛡️</span>
+                <div class="text-left">
+                  <h4 class="font-bold text-white text-xs md:text-sm">Gemini Smart Whitelist Override</h4>
+                  <p class="text-[9px] text-slate-500">Mengevaluasi konteks brand untuk menghindari false-positive pada situs aman.</p>
+                </div>
               </div>
-              <div class="flex flex-col items-end gap-1 flex-shrink-0 bg-slate-950 p-2.5 rounded-xl border border-slate-800 font-mono text-[9px]">
-                <div class="text-slate-400">domain: <span class="text-white">tokopedia.com</span></div>
-                <div class="text-emerald-400 font-bold flex items-center gap-1">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  🟢 BRAND_RESMI
+              
+              <!-- Whitelist Flow diagram mockup -->
+              <div class="bg-slate-950 border border-slate-900 rounded-xl p-3 flex items-center justify-between gap-2 font-mono text-[8px] text-left">
+                <!-- Input Domain -->
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-slate-500">DOMAIN</span>
+                  <span class="text-white font-bold">tokopedia.com</span>
+                </div>
+                <!-- Connector -->
+                <div class="flex-1 flex items-center justify-center">
+                  <div class="h-0.5 bg-slate-800 w-full relative">
+                    <div class="absolute top-1/2 left-0 w-2 h-2 -translate-y-1/2 rounded-full bg-teal-500 animate-ping"></div>
+                  </div>
+                </div>
+                <!-- Gemini context check -->
+                <div class="bg-teal-950/20 border border-teal-500/20 p-1.5 rounded flex flex-col items-center">
+                  <span class="text-teal-400 font-bold">GEMINI VALIDATION</span>
+                  <span class="text-[7px] text-slate-500">Logo, Brand, IP Match</span>
+                </div>
+                <!-- Connector -->
+                <div class="flex-1 flex items-center justify-center">
+                  <div class="h-0.5 bg-slate-800 w-full"></div>
+                </div>
+                <!-- Decision -->
+                <div class="flex flex-col items-end gap-0.5">
+                  <span class="text-emerald-400 font-bold bg-emerald-950/40 border border-emerald-500/20 px-1 py-0.5 rounded">🟢 BYPASS LOCK</span>
+                  <span class="text-[6px] text-slate-500">Whitelist Override</span>
                 </div>
               </div>
             </div>
 
-            <!-- Mock 2: Chatbot -->
-            <div class="p-4 rounded-2xl bg-slate-900/20 border border-slate-800 flex flex-col gap-2">
-              <h4 class="font-bold text-white text-xs text-left">Asisten Diskusi Siber Kontekstual</h4>
-              <div class="flex flex-col gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800 text-[9px] font-medium leading-normal text-left">
-                <div class="bg-slate-900 text-teal-300 p-2 rounded-xl rounded-tr-none self-end max-w-[85%]">
-                  "Mengapa link bri-promo.xyz berbahaya?"
+            <!-- Asisten Diskusi Siber Kontekstual -->
+            <div class="p-5 rounded-2xl bg-slate-900/20 border border-slate-800 flex flex-col gap-3">
+              <div class="flex items-center gap-2">
+                <span class="text-xl">🤖</span>
+                <div class="text-left">
+                  <h4 class="font-bold text-white text-xs md:text-sm">Asisten Diskusi Siber Gemini</h4>
+                  <p class="text-[9px] text-slate-500">Ruang diskusi kontekstual langsung terkait ancaman keamanan digital.</p>
                 </div>
-                <div class="bg-teal-950/40 text-teal-200 p-2 rounded-xl rounded-tl-none self-start max-w-[85%] border border-teal-500/10">
-                  "Tautan ini menggunakan TLD murah (.xyz) dan meniru nama Bank BRI untuk mencuri data OTP Anda."
+              </div>
+              
+              <!-- Chat interface mockup -->
+              <div class="bg-slate-950 rounded-xl border border-slate-900 p-3 space-y-2 text-[9px] leading-relaxed text-left flex flex-col max-h-[140px] overflow-hidden">
+                <!-- AI avatar top header -->
+                <div class="flex items-center gap-1.5 pb-1.5 border-b border-slate-900">
+                  <span class="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse"></span>
+                  <span class="font-bold text-slate-300 text-[8px]">Gemini AI Assistant</span>
+                </div>
+                
+                <!-- User Chat bubble -->
+                <div class="bg-slate-900 text-teal-300 p-2 rounded-xl rounded-tr-none self-end max-w-[85%] text-[8px]">
+                  "Mengapa link bri-promo.xyz berbahaya? Saya dapat SMS-nya."
+                </div>
+                <!-- AI Chat bubble -->
+                <div class="bg-teal-950/40 text-teal-200 p-2 rounded-xl rounded-tl-none self-start max-w-[85%] border border-teal-500/10 text-[8px]">
+                  "Tautan ini menggunakan domain murah (.xyz) dan meniru Bank BRI. Bank resmi selalu menggunakan domain .co.id. Ini adalah phishing untuk mencuri kredensial Anda."
                 </div>
               </div>
             </div>
