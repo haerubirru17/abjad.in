@@ -105,8 +105,26 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
   const ttsEnabledRef = useRef(true);
   const hasFatalErrorRef = useRef(false);                              // Melacak error fatal agar tidak loop mic
   const networkErrorCountRef = useRef(0);                              // Melacak jumlah error jaringan berturut-turut
+  const isTransitioningRef = useRef(false);                            // Cegah mic restart saat transisi (kirim/bicara)
   const startVoiceListeningRef = useRef<() => void>(() => {});
   const sendMessageRef = useRef<(text: string) => void>(() => {});     // Bug #1: anti stale-closure
+
+  // ── stopMic: matikan mikrofon TANPA mengubah voiceMode ────
+  // Digunakan saat transisi: kirim pesan, AI bicara, dsb.
+  const stopMicRef = useRef<() => void>(() => {});
+  const stopMic = useCallback(() => {
+    isTransitioningRef.current = true; // Cegah onend dari restart mic
+    if (vadTimerRef.current) { clearTimeout(vadTimerRef.current); vadTimerRef.current = null; }
+    accumulatedTextRef.current = '';
+    if (recognitionRef.current) {
+      try { (recognitionRef.current as any).abort(); } catch { /* ignore */ }
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
+    setLiveTranscript('');
+    // Reset transitioning setelah delay agar onend punya waktu fire
+    setTimeout(() => { isTransitioningRef.current = false; }, 200);
+  }, []);
 
   // ── Sync refs dengan state ─────────────────────────────────
   useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
@@ -163,6 +181,11 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
     // Bug #2: tolak jika sedang loading ATAU sedang menunggu response sebelumnya
     if (!text.trim() || isLoading || isSubmittingRef.current) return;
 
+    // ★ MATIKAN MIC sebelum kirim — cegah feedback loop
+    if (voiceModeRef.current) {
+      stopMicRef.current();
+    }
+
     const userMsg: ChatMessage = { role: 'user', text: text.trim() };
     setMessages(prev => [...prev, userMsg]);
     setInputText('');
@@ -214,13 +237,16 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
           // Cloud TTS tersedia → pakai WaveNet, restart mic setelah selesai
           playAudio(data.audioBase64, () => {
             if (voiceModeRef.current && !isLoadingRef.current) {
-              setTimeout(() => startVoiceListeningRef.current(), 300);
+              setTimeout(() => startVoiceListeningRef.current(), 400);
             }
           });
         } else {
           // Fallback: browser TTS jika tidak ada API key
           speakBrowser(data.reply);
         }
+      } else if (voiceModeRef.current) {
+        // TTS dimatikan tapi masih voice mode → restart mic langsung
+        setTimeout(() => startVoiceListeningRef.current(), 400);
       }
 
     } catch (error) {
@@ -231,7 +257,7 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
       }]);
       // Jika error di voice mode, restart listening
       if (voiceModeRef.current) {
-        setTimeout(() => startVoiceListeningRef.current(), 500);
+        setTimeout(() => startVoiceListeningRef.current(), 800);
       }
     } finally {
       setIsLoading(false);
@@ -239,17 +265,22 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
     }
   }, [isLoading, messages, scanContext]);
 
-  // Sync sendMessageRef agar callbacks speech recognition selalu pakai versi terbaru
+  // Sync refs agar callbacks speech recognition selalu pakai versi terbaru
   useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
+  useEffect(() => { stopMicRef.current = stopMic; }, [stopMic]);
 
   // ── Browser TTS (INSTANT — Web Speech SynthesisAPI) ───────
   // Dipakai di voice mode: tidak perlu network, langsung bicara
   const speakBrowser = useCallback((text: string) => {
     if (!ttsEnabledRef.current) return;
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+
+    // ★ MATIKAN MIC sebelum AI mulai bicara — cegah feedback loop
+    stopMicRef.current();
 
     // Hentikan utterance & watchdog sebelumnya
     if (uttWatchdogRef.current) { clearInterval(uttWatchdogRef.current); uttWatchdogRef.current = null; }
-    window.speechSynthesis?.cancel();
+    window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'id-ID';
@@ -266,7 +297,7 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
       setIsSpeaking(false);
       // Auto-restart mic setelah AI selesai bicara
       if (voiceModeRef.current && !isLoadingRef.current) {
-        setTimeout(() => startVoiceListeningRef.current(), 300);
+        setTimeout(() => startVoiceListeningRef.current(), 400);
       }
     };
 
@@ -287,6 +318,8 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
   // ── Cloud TTS Audio Playback ────────────────────────────────────────────
   // onFinished: opsional, dipanggil setelah audio selesai (dipakai voice mode untuk restart mic)
   const playAudio = (audioDataUrl: string, onFinished?: () => void) => {
+    // ★ MATIKAN MIC sebelum audio AI diputar — cegah feedback loop
+    stopMicRef.current();
     stopAudio();
     const audio = new Audio(audioDataUrl);
     audioRef.current = audio;
@@ -354,14 +387,16 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
       if (isSubmittingRef.current) return;
 
       // ── BARGE-IN: user bicara saat AI sedang ngomong (Cloud TTS)
-      if (audioRef.current && !audioRef.current.paused) {
+      // Hanya trigger barge-in jika ada transkrip yang bermakna (>= 2 karakter)
+      const hasTranscript = event.results.length > 0 && event.results[event.resultIndex][0].transcript.trim().length >= 2;
+      if (hasTranscript && audioRef.current && !audioRef.current.paused) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
         audioRef.current = null;
         setIsSpeaking(false);
       }
       // Bug #3: BARGE-IN browser TTS — cancel langsung jika user mulai bicara
-      if (window.speechSynthesis?.speaking) {
+      if (hasTranscript && typeof window !== 'undefined' && window.speechSynthesis?.speaking) {
         if (uttWatchdogRef.current) { clearInterval(uttWatchdogRef.current); uttWatchdogRef.current = null; }
         window.speechSynthesis.cancel();
         setIsSpeaking(false);
@@ -382,18 +417,21 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
         accumulatedTextRef.current += (accumulatedTextRef.current ? ' ' : '') + newFinal.trim();
       }
 
-      setLiveTranscript(accumulatedTextRef.current + (interim ? ' ' + interim : ''));
+      const currentFullText = accumulatedTextRef.current + (interim ? ' ' + interim : '');
+      setLiveTranscript(currentFullText);
 
-      // Bug #2: VAD 2200ms (lebih natural, sesuai pola bicara Indonesia)
+      // ★ VAD 2200ms — dipicu oleh FINAL maupun INTERIM text
+      // Ini memastikan VAD tetap responsif meski browser lambat mengirim status final
       if (vadTimerRef.current) clearTimeout(vadTimerRef.current);
-      if (accumulatedTextRef.current) {
+      const candidateText = accumulatedTextRef.current.trim() || currentFullText.trim();
+      if (candidateText && candidateText.length >= 3) {
         vadTimerRef.current = setTimeout(() => {
-          const toSend = accumulatedTextRef.current.trim();
-          // Bug #2: minimum 3 karakter agar tidak mengirim noise/suara pendek
+          // Ambil teks terbaik: prioritaskan final, fallback ke interim
+          const toSend = accumulatedTextRef.current.trim() || currentFullText.trim();
           if (toSend && toSend.length >= 3) {
             accumulatedTextRef.current = '';
             setLiveTranscript('');
-            sendMessageRef.current(toSend); // Bug #1: pakai ref, bukan closure
+            sendMessageRef.current(toSend); // sendMessage akan memanggil stopMic
           }
         }, 2200);
       }
@@ -437,12 +475,14 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
 
     recognition.onend = () => {
       setIsListening(false);
+      // ★ JANGAN restart jika sedang transisi (kirim pesan / AI bicara)
+      if (isTransitioningRef.current) return;
       // Hanya restart jika: voice mode aktif, tidak loading, tidak submit, & TIDAK ada error fatal
       if (voiceModeRef.current && !isLoadingRef.current && !isSubmittingRef.current && !hasFatalErrorRef.current) {
         // Berikan delay restart yang sedikit lebih panjang untuk error jaringan agar server tidak overload
         const restartDelay = networkErrorCountRef.current > 0 ? 2000 : 1000;
         setTimeout(() => {
-          if (voiceModeRef.current && !hasFatalErrorRef.current) {
+          if (voiceModeRef.current && !hasFatalErrorRef.current && !isTransitioningRef.current) {
             startVoiceListeningRef.current(); // Fresh instance
           }
         }, restartDelay);

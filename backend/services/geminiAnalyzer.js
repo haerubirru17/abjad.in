@@ -611,8 +611,10 @@ module.exports = {
   analyzeWithGrounding,
   sanitizeForGemini,
   getModelStatus,
-  // Exposed for testing
+  // Exposed for testing & reuse by chat route
   MODEL_ROTATION,
   getAvailableResource,
+  markResourceRateLimited,
+  genAIInstances,
   callGemini
 };

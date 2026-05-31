@@ -19,13 +19,15 @@
 
 const express = require('express');
 const router = express.Router();
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const https = require('https');
 
-// ── Gemini Setup (reuse key yang sudah ada) ────────────────────────────────
-const rawKeys = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
-const apiKeys = rawKeys.split(',').map(k => k.trim()).filter(k => k.length > 0);
-const genAI = new GoogleGenerativeAI(apiKeys[0] || 'dummy');
+// ── Reuse infrastruktur auto-rotate dari geminiAnalyzer ─────────────────────
+const {
+  getAvailableResource,
+  markResourceRateLimited,
+  MODEL_ROTATION,
+  genAIInstances,
+} = require('../services/geminiAnalyzer');
 
 // ── Google Cloud TTS ───────────────────────────────────────────────────────
 const TTS_API_KEY = process.env.GOOGLE_VOICE_API_KEY || '';
@@ -131,99 +133,129 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'Pesan terlalu panjang (maksimal 500 karakter).' });
   }
 
-  try {
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      systemInstruction: buildSystemPrompt(scanContext),
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 1024,  // Ditingkatkan agar respons tidak terpotong di tengah kalimat
-      }
-    });
+  // ── Sanitasi History ─────────────────────────────────────────────────
+  // Gemini startChat butuh: alternating user→model, DIMULAI dengan 'user'
+  // Filter: buang greeting-only (assistant/model di awal), pastikan valid pairs
+  const rawHistory = (history || []).slice(-6); // Batasi ke 6 entry agar Gemini lebih cepat
+  
+  // Map role dulu
+  const mappedHistory = rawHistory.map(h => ({
+    role: h.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: (h.text || '').trim() }]
+  })).filter(h => h.parts[0].text.length > 0); // buang entri kosong
 
-    // ── Sanitasi History ─────────────────────────────────────────────────
-    // Gemini startChat butuh: alternating user→model, DIMULAI dengan 'user'
-    // Filter: buang greeting-only (assistant/model di awal), pastikan valid pairs
-    const rawHistory = (history || []).slice(-6); // Batasi ke 6 entry (dikurangi dari 10) agar Gemini lebih cepat
-    
-    // Map role dulu
-    const mappedHistory = rawHistory.map(h => ({
-      role: h.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: (h.text || '').trim() }]
-    })).filter(h => h.parts[0].text.length > 0); // buang entri kosong
-
-    // Gemini requires history to start with 'user' role
-    // Trim semua 'model' di awal sampai ketemu 'user'
-    while (mappedHistory.length > 0 && mappedHistory[0].role === 'model') {
-      mappedHistory.shift();
-    }
-
-    // Pastikan tidak ada dua role yang sama berurutan (bisa crash Gemini)
-    const validHistory = [];
-    for (const entry of mappedHistory) {
-      const last = validHistory[validHistory.length - 1];
-      if (!last || last.role !== entry.role) {
-        validHistory.push(entry);
-      }
-    }
-
-    // Pastikan history berakhir dengan 'model' (pasangan lengkap)
-    // TAPI hanya buang jika tidak ada pasangan model sama sekali di seluruh history,
-    // karena membuang user entry valid menyebabkan konteks Q2+ hilang.
-    // Correct: history boleh diakhiri user jika itu memang satu-satunya entry.
-    // Gemini menerima history [user, model, user, model] — selalu harus berpasangan.
-    while (validHistory.length > 0 && validHistory[validHistory.length - 1].role === 'user') {
-      // Cek apakah ada model sebelumnya; jika tidak, history ini tidak valid — hapus
-      const hasModelPair = validHistory.some(h => h.role === 'model');
-      if (!hasModelPair) { validHistory.length = 0; break; }
-      validHistory.pop(); // buang trailing user agar pasangan lengkap
-    }
-
-    console.log(`[ChatRoute] Valid history entries: ${validHistory.length}, message: "${message.trim().slice(0, 50)}"`);
-
-    const chat = model.startChat({ history: validHistory });
-
-    // Timeout 10 detik untuk Gemini chat (dikurangi dari 15s)
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('AI Timeout')), 10000)
-    );
-
-    const result = await Promise.race([
-      chat.sendMessage(message.trim()),
-      timeoutPromise
-    ]);
-
-    const reply = result.response.text().trim();
-    console.log(`[ChatRoute] Reply generated (${reply.length} chars)`);
-
-    // Generate audio TTS PARALEL — dibatasi 5 detik agar tidak delay respons teks
-    // Jika TTS lambat/gagal, tetap kirim teks tanpa audio (non-blocking)
-    const TTS_TIMEOUT = 5000;
-    const audioBase64 = await Promise.race([
-      textToSpeech(reply),
-      new Promise(resolve => setTimeout(() => resolve(null), TTS_TIMEOUT))
-    ]);
-
-    return res.json({
-      reply,
-      audioBase64: audioBase64 ? `data:audio/mp3;base64,${audioBase64}` : null,
-    });
-
-  } catch (error) {
-    console.error('[ChatRoute] Error detail:', error.message, error.status, error.stack?.slice(0, 300));
-
-    if (error.message === 'AI Timeout') {
-      return res.status(504).json({ error: 'AI sedang sibuk. Coba lagi sebentar.' });
-    }
-
-    if (error.status === 429 || error.message?.includes('429')) {
-      return res.status(429).json({ error: 'Kuota AI sedang penuh. Coba lagi dalam 1 menit.' });
-    }
-
-    return res.status(500).json({
-      error: 'Gagal mendapatkan jawaban. Silakan coba lagi.',
-    });
+  // Gemini requires history to start with 'user' role
+  // Trim semua 'model' di awal sampai ketemu 'user'
+  while (mappedHistory.length > 0 && mappedHistory[0].role === 'model') {
+    mappedHistory.shift();
   }
+
+  // Pastikan tidak ada dua role yang sama berurutan (bisa crash Gemini)
+  const validHistory = [];
+  for (const entry of mappedHistory) {
+    const last = validHistory[validHistory.length - 1];
+    if (!last || last.role !== entry.role) {
+      validHistory.push(entry);
+    }
+  }
+
+  // Pastikan history berakhir dengan 'model' (pasangan lengkap)
+  while (validHistory.length > 0 && validHistory[validHistory.length - 1].role === 'user') {
+    const hasModelPair = validHistory.some(h => h.role === 'model');
+    if (!hasModelPair) { validHistory.length = 0; break; }
+    validHistory.pop(); // buang trailing user agar pasangan lengkap
+  }
+
+  console.log(`[ChatRoute] Valid history entries: ${validHistory.length}, message: "${message.trim().slice(0, 50)}"`);
+
+  // ── Auto-Rotate: Coba semua kombinasi Key × Model ──────────────────
+  const systemPrompt = buildSystemPrompt(scanContext);
+  const maxAttempts = genAIInstances.length * MODEL_ROTATION.length;
+  const triedResources = new Set();
+  let lastError = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const { instance, modelName, resourceId } = getAvailableResource();
+
+    // Jika semua kombinasi key+model sudah dicoba, keluar
+    if (triedResources.has(resourceId)) break;
+    triedResources.add(resourceId);
+
+    try {
+      const model = instance.client.getGenerativeModel({
+        model: modelName,
+        systemInstruction: systemPrompt,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1024,
+        }
+      });
+
+      const chat = model.startChat({ history: validHistory });
+
+      // Timeout 12 detik untuk Gemini chat
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('AI Timeout')), 12000)
+      );
+
+      const result = await Promise.race([
+        chat.sendMessage(message.trim()),
+        timeoutPromise
+      ]);
+
+      const reply = result.response.text().trim();
+      console.log(`[ChatRoute] Reply generated (${reply.length} chars) via ${modelName} [${instance.keyPrefix}]`);
+
+      // Generate audio TTS PARALEL — dibatasi 5 detik agar tidak delay respons teks
+      const TTS_TIMEOUT = 5000;
+      const audioBase64 = await Promise.race([
+        textToSpeech(reply),
+        new Promise(resolve => setTimeout(() => resolve(null), TTS_TIMEOUT))
+      ]);
+
+      return res.json({
+        reply,
+        audioBase64: audioBase64 ? `data:audio/mp3;base64,${audioBase64}` : null,
+      });
+
+    } catch (error) {
+      lastError = error;
+
+      // Rate limited atau quota exhausted — tandai resource ini dan coba kombinasi berikutnya
+      if (error.status === 429 || error.message?.includes('429') || error.message?.includes('quota')) {
+        const isQuota = error.message?.toLowerCase().includes('quota');
+        markResourceRateLimited(resourceId, isQuota);
+        console.warn(`[ChatRoute] ${resourceId} ${isQuota ? 'QUOTA EXHAUSTED' : 'RATE-LIMITED'}, trying next...`);
+        continue;
+      }
+
+      // Timeout — tandai resource ini dengan cooldown pendek, coba berikutnya
+      if (error.message?.includes('Timeout')) {
+        markResourceRateLimited(resourceId, false); // 60s cooldown
+        console.warn(`[ChatRoute] ${resourceId} TIMEOUT, trying next...`);
+        continue;
+      }
+
+      // Error lainnya (parse, network, dll) — tunggu sebentar lalu coba berikutnya
+      console.error(`[ChatRoute] Error on ${resourceId}:`, error.message);
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+  }
+
+  // ── Semua resource habis — kembalikan error yang informatif ──
+  console.error('[ChatRoute] All AI resources exhausted:', lastError?.message);
+
+  if (lastError?.message === 'AI Timeout') {
+    return res.status(504).json({ error: 'AI sedang sibuk. Coba lagi sebentar.' });
+  }
+
+  if (lastError?.status === 429 || lastError?.message?.includes('429')) {
+    return res.status(429).json({ error: 'Kuota AI sedang penuh. Coba lagi dalam 1 menit.' });
+  }
+
+  return res.status(500).json({
+    error: 'Gagal mendapatkan jawaban. Silakan coba lagi.',
+  });
 });
 
 module.exports = router;
