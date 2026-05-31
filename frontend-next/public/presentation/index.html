@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Abjad.in — Presentasi JuaraVibeCoding</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#0f766e', // Teal 700
+            secondary: '#d97706', // Amber 600
+            darkBg: '#090d16', // Dark Slate Blue-Black
+          },
+          fontFamily: {
+            heading: ['Plus Jakarta Sans', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #05070c;
+      color: #f3f4f6;
+      overflow: hidden;
+    }
+    .slide {
+      display: none;
+      opacity: 0;
+      transition: opacity 0.8s ease-in-out;
+    }
+    .slide.active {
+      display: flex;
+      opacity: 1;
+    }
+    .reveal-item {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reveal-item.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .neon-pulse {
+      animation: neonPulse 2s infinite alternate;
+    }
+    @keyframes neonPulse {
+      from {
+        text-shadow: 0 0 10px rgba(15, 118, 110, 0.4), 0 0 20px rgba(15, 118, 110, 0.2);
+      }
+      to {
+        text-shadow: 0 0 20px rgba(15, 118, 110, 0.8), 0 0 30px rgba(15, 118, 110, 0.4), 0 0 40px rgba(15, 118, 110, 0.2);
+      }
+    }
+    .glow-orange {
+      box-shadow: 0 0 25px rgba(217, 119, 6, 0.15);
+    }
+    .glow-teal {
+      box-shadow: 0 0 25px rgba(15, 118, 110, 0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Main Slide Container -->
+  <div class="relative w-screen h-screen flex flex-col justify-between p-8 md:p-12">
+    
+    <!-- Header Indicator -->
+    <div class="flex items-center justify-between text-xs tracking-widest text-slate-500 uppercase font-bold">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+        <span>Abjad.in Pitch</span>
+      </div>
+      <div>
+        <span id="slide-num">1</span> / 6
+      </div>
+    </div>
+
+    <!-- Slides Wrapper -->
+    <div class="flex-1 flex items-center justify-center">
+
+      <!-- SLIDE 1: INTRO (Layar Hitam + Fake Notifications) -->
+      <div class="slide active w-full max-w-4xl flex-col items-center justify-center text-center relative" id="slide-0">
+        <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight text-white mb-6">
+          Abjad<span class="text-primary">.in</span>
+        </h1>
+        <p class="text-slate-500 text-lg md:text-xl font-medium tracking-wide">
+          Baca Dulu, Baru Klik.
+        </p>
+
+        <!-- Container for revealable chat notification bubbles -->
+        <div class="absolute inset-0 flex flex-col justify-center items-center pointer-events-none gap-4">
+          <!-- Bubble 1 -->
+          <div class="reveal-item absolute top-[15%] left-[5%] md:left-[15%] bg-rose-950/80 border border-rose-500/40 text-rose-300 px-4 py-3 rounded-2xl text-xs md:text-sm font-semibold max-w-xs shadow-lg shadow-rose-950/30">
+            💬 "Selamat! Nomor Anda terpilih pemenang Hadiah 100jt..."
+          </div>
+          <!-- Bubble 2 -->
+          <div class="reveal-item absolute bottom-[20%] right-[5%] md:right-[15%] bg-amber-950/80 border border-amber-500/40 text-amber-300 px-4 py-3 rounded-2xl text-xs md:text-sm font-semibold max-w-xs shadow-lg shadow-amber-950/30">
+            💬 "PENTING: Verifikasi Livin Mandiri Anda sebelum terblokir..."
+          </div>
+          <!-- Bubble 3 -->
+          <div class="reveal-item absolute top-[70%] left-[8%] md:left-[20%] bg-rose-950/80 border border-rose-500/40 text-rose-300 px-4 py-3 rounded-2xl text-xs md:text-sm font-semibold max-w-xs shadow-lg shadow-rose-950/30">
+            📦 "Paket J&T gagal terkirim. Klik link untuk update: bit.ly/..."
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 2: MASALAH & TARGET AUDIENS -->
+      <div class="slide w-full max-w-4xl flex-col justify-center" id="slide-1">
+        <span class="text-xs font-bold text-rose-500 tracking-widest uppercase mb-2 block">1. Masalah & Dampak</span>
+        <h2 class="text-3xl md:text-5xl font-extrabold text-white mb-8 tracking-tight">Eksploitasi Sosial & Kerugian Nasional</h2>
+        
+        <div class="grid md:grid-cols-2 gap-8">
+          <!-- Left side: Stats -->
+          <div class="reveal-item space-y-6">
+            <div class="p-6 rounded-2xl border border-slate-800 bg-slate-900/20 glow-orange">
+              <div class="text-4xl md:text-5xl font-black text-rose-500 font-heading mb-1">TRILIUNAN</div>
+              <p class="text-sm font-bold text-slate-300">Kerugian Finansial Nasional</p>
+              <p class="text-xs text-slate-500 mt-1">Akibat scam link, phishing, judi online, dan rekayasa sosial.</p>
+            </div>
+            <div class="p-6 rounded-2xl border border-slate-800 bg-slate-900/20">
+              <div class="text-4xl md:text-5xl font-black text-amber-500 font-heading mb-1">RATUSAN RIBU</div>
+              <p class="text-sm font-bold text-slate-300">Kasus Teror Loker Palsu & APK</p>
+              <p class="text-xs text-slate-500 mt-1">Menargetkan pencari kerja muda dan masyarakat rentan.</p>
+            </div>
+          </div>
+          <!-- Right side: Target Groups -->
+          <div class="reveal-item flex flex-col justify-center gap-4">
+            <h3 class="text-lg font-bold text-slate-300 mb-2">Kelompok Sasaran Empuk Kejahatan:</h3>
+            <div class="flex items-center gap-4 p-4 rounded-xl bg-slate-950 border border-slate-800">
+              <div class="w-10 h-10 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500 font-bold text-lg">👵</div>
+              <div>
+                <p class="text-sm font-bold text-white">Lansia & Orang Tua</p>
+                <p class="text-xs text-slate-500">Minim edukasi keamanan siber.</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-4 p-4 rounded-xl bg-slate-950 border border-slate-800">
+              <div class="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 font-bold text-lg">🧑</div>
+              <div>
+                <p class="text-sm font-bold text-white">Masyarakat Awam</p>
+                <p class="text-xs text-slate-500">Mudah tergiur promo / panik ancaman palsu.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 3: SOLUSI — MEMPERKENALKAN ABJAD.IN -->
+      <div class="slide w-full max-w-4xl flex-col justify-center" id="slide-2">
+        <span class="text-xs font-bold text-teal-400 tracking-widest uppercase mb-2 block">2. Solusi Aplikasi</span>
+        <h2 class="text-3xl md:text-5xl font-extrabold text-white mb-8 tracking-tight">Investigasi Cepat, Edukasi Instan</h2>
+        
+        <div class="grid md:grid-cols-3 gap-6">
+          <!-- Card 1 -->
+          <div class="reveal-item p-6 rounded-2xl border border-slate-800 bg-slate-900/10 hover:border-teal-500/30 transition-colors">
+            <div class="text-3xl mb-4">🔗</div>
+            <h3 class="font-bold text-white mb-2">Input Multi-Mode</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">Menerima link, teks isi chat, atau upload file gambar screenshot pesan.</p>
+          </div>
+          <!-- Card 2 -->
+          <div class="reveal-item p-6 rounded-2xl border border-slate-800 bg-slate-900/10 hover:border-teal-500/30 transition-colors">
+            <div class="text-3xl mb-4">🔍</div>
+            <h3 class="font-bold text-white mb-2">Analisis 6 Lapisan</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">Memadukan in-memory local database, ML leksikal leightweight, API Global, dan AI Gemini.</p>
+          </div>
+          <!-- Card 3 -->
+          <div class="reveal-item p-6 rounded-2xl border border-slate-800 bg-slate-900/10 hover:border-teal-500/30 transition-colors">
+            <div class="text-3xl mb-4">💊</div>
+            <h3 class="font-bold text-white mb-2">Edukasi EduPills</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">Bukan cuma melarang, tapi mendidik pengguna agar paham ciri rekayasa sosial.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 4: KEUNIKAN & WOW FACTOR (Homograph & Gemini) -->
+      <div class="slide w-full max-w-4xl flex-col justify-center" id="slide-3">
+        <span class="text-xs font-bold text-amber-500 tracking-widest uppercase mb-2 block">3. Keunikan & Wow Factor</span>
+        <h2 class="text-3xl md:text-5xl font-extrabold text-white mb-8 tracking-tight">Inovasi Pendeteksi Homograph & Gemini AI</h2>
+        
+        <div class="grid md:grid-cols-2 gap-8">
+          <!-- Left side: Homograph animation mock -->
+          <div class="reveal-item p-6 rounded-2xl border border-slate-800 bg-slate-950 flex flex-col justify-center items-center text-center">
+            <p class="text-xs font-semibold text-slate-500 mb-2">Visual Serangan Homograph</p>
+            <div class="text-xl font-bold bg-slate-900 px-4 py-2.5 rounded-xl border border-slate-800 tracking-wide mb-4">
+              sh<span class="text-rose-500 underline font-extrabold animate-pulse">о</span>pee.co.id
+            </div>
+            <p class="text-xs text-slate-400 mb-2">Huruf "о" di atas sebenarnya adalah aksara Cyrillic</p>
+            <p class="text-[10px] text-teal-400 font-mono">Punycode: xn--shpee-e1a.co.id</p>
+          </div>
+
+          <!-- Right side: Gemini AI info -->
+          <div class="reveal-item flex flex-col justify-center gap-6">
+            <div class="flex items-start gap-4">
+              <div class="p-3 rounded-xl bg-teal-500/10 text-teal-400 font-bold">🧠</div>
+              <div>
+                <h4 class="font-bold text-white text-sm mb-1">Gemini AI Smart Override</h4>
+                <p class="text-xs text-slate-400 leading-relaxed">Secara cerdas mengenali brand resmi (misal Tokopedia) guna melompati false-positive jika status domain aman.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-4">
+              <div class="p-3 rounded-xl bg-amber-500/10 text-amber-400 font-bold">💬</div>
+              <div>
+                <h4 class="font-bold text-white text-sm mb-1">Cyber Security Chatbot</h4>
+                <p class="text-xs text-slate-400 leading-relaxed">Pengguna dapat langsung mengobrol dan mendiskusikan ancaman yang terdeteksi dengan asisten AI siber.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 5: LIVE DEMO SCREEN (Mockup) -->
+      <div class="slide w-full max-w-4xl flex-col items-center justify-center text-center" id="slide-4">
+        <span class="text-xs font-bold text-slate-400 tracking-widest uppercase mb-2 block">Demo Fungsional</span>
+        <h2 class="text-3xl md:text-5xl font-extrabold text-white mb-6 tracking-tight">Waktunya Demo Aplikasi</h2>
+        
+        <div class="reveal-item w-full max-w-xl mx-auto p-8 rounded-3xl border border-slate-800 bg-slate-900/10 flex flex-col items-center justify-center glow-teal">
+          <div class="w-16 h-16 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center text-2xl mb-4 animate-bounce">
+            ⚡
+          </div>
+          <p class="text-sm font-semibold text-slate-300 mb-2">Mulai Merekam Layar Scanner Abjad.in</p>
+          <p class="text-xs text-slate-500 max-w-sm leading-relaxed">Silakan beralih ke perekaman tab scan di web utama Anda untuk mendemonstrasikan proses pemindaian link, teks, atau gambar secara live.</p>
+        </div>
+      </div>
+
+      <!-- SLIDE 6: PENUTUP & TAGLINE -->
+      <div class="slide w-full max-w-4xl flex-col items-center justify-center text-center" id="slide-5">
+        <span class="text-xs font-bold text-teal-500 tracking-widest uppercase mb-4 block">Abjad.in — GCP #JuaraVibeCoding</span>
+        
+        <div class="reveal-item space-y-8">
+          <h2 class="text-5xl md:text-7xl font-black text-white tracking-tight leading-tight neon-pulse">
+            Baca Dulu,<br />Baru Klik!
+          </h2>
+          
+          <p class="text-slate-400 text-sm md:text-base max-w-md mx-auto">
+            Meningkatkan literasi & tameng proteksi digital masyarakat Indonesia.
+          </p>
+
+          <div class="flex items-center justify-center gap-6 pt-4 text-xs font-bold tracking-widest text-slate-500 uppercase">
+            <span>Google Cloud Run</span>
+            <span>•</span>
+            <span>Gemini AI Engine</span>
+            <span>•</span>
+            <span>ONNX ML Model</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer Controls Help -->
+    <div class="flex items-center justify-between text-[11px] text-slate-600 font-semibold border-t border-slate-900 pt-4">
+      <div>
+        Gunakan tombol <kbd class="px-1.5 py-0.5 bg-slate-900 border border-slate-800 rounded text-slate-400 font-mono">Panah Kanan</kbd> untuk slide, <kbd class="px-1.5 py-0.5 bg-slate-900 border border-slate-800 rounded text-slate-400 font-mono">Panah Atas</kbd> untuk animasi reveal.
+      </div>
+      <div>
+        Abjad.in © 2026
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Slide Control Logic JS -->
+  <script>
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+    const totalSlides = slides.length;
+    const slideNumIndicator = document.getElementById('slide-num');
+
+    // Each slide keeps track of its internal reveal step/items
+    function getRevealItems(slideIndex) {
+      return slides[slideIndex].querySelectorAll('.reveal-item');
+    }
+
+    // Key event listener
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        revealNextItem();
+      }
+    });
+
+    function showSlide(index) {
+      // Hide current active slide
+      slides[currentSlide].classList.remove('active');
+      
+      // Update slide index
+      currentSlide = index;
+      
+      // Show new slide
+      slides[currentSlide].classList.add('active');
+      
+      // Reset reveal items on the new slide (make them hidden again)
+      const items = getRevealItems(currentSlide);
+      items.forEach(item => item.classList.remove('show'));
+
+      // Update footer indicator
+      slideNumIndicator.textContent = currentSlide + 1;
+    }
+
+    function nextSlide() {
+      const nextIndex = (currentSlide + 1) % totalSlides;
+      showSlide(nextIndex);
+    }
+
+    function prevSlide() {
+      const prevIndex = (currentSlide - 1 + totalSlides) % totalSlides;
+      showSlide(prevIndex);
+    }
+
+    function revealNextItem() {
+      const items = getRevealItems(currentSlide);
+      // Find the first item that is not shown yet
+      for (let item of items) {
+        if (!item.classList.contains('show')) {
+          item.classList.add('show');
+          break;
+        }
+      }
+    }
+  </script>
+</body>
+</html>
