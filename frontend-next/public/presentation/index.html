@@ -571,6 +571,22 @@
     
     let audio = null;
     
+    // Auto-load default static voiceover audio
+    function initDefaultAudio() {
+      audio = new Audio('./voiceover.wav');
+      audioFilename.textContent = 'voiceover.wav';
+      audioControls.classList.remove('hidden');
+      
+      audio.addEventListener('loadedmetadata', updateTime);
+      audio.addEventListener('timeupdate', updateTime);
+      audio.addEventListener('ended', () => {
+        playIcon.textContent = '▶ Play';
+      });
+    }
+    
+    // Initialize default audio on load
+    initDefaultAudio();
+    
     audioUpload.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
