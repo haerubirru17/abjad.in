@@ -411,7 +411,7 @@ router.post('/', async (req, res) => {
     // Unpack unified Gemini result
     const unifiedGemini = unifiedGeminiResult.status === 'fulfilled' ? unifiedGeminiResult.value : null;
     const mlLexical = mlLexicalResult.status === 'fulfilled' ? mlLexicalResult.value : earlyMlResult;
-    tp('Gemini AI', unifiedGemini ? 'ok' : 'failed',
+    tp('Cognitive AI Engine', unifiedGemini ? 'ok' : 'failed',
       unifiedGemini ? `Model: ${unifiedGemini?.url?._model || unifiedGemini?._model || 'gemini'}` : 'API tidak tersedia atau kuota habis');
     tp('ML Leksikal (ONNX)', mlLexical ? (mlLexical.isPhishing ? 'hit' : 'ok') : 'skipped',
       mlLexical ? `Phishing: ${mlLexical.isPhishing}, confidence: ${(mlLexical.confidence * 100).toFixed(0)}%` : 'Model tidak berjalan');

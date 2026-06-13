@@ -258,7 +258,7 @@ Output HANYA JSON berikut:
     confidence: 0,
     indicators: [],
     explanation: 'Analisa AI tidak tersedia saat ini.',
-    _model: 'Gemini AI'
+    _model: 'Cognitive AI'
   };
 }
 
@@ -298,7 +298,7 @@ Output HANYA JSON berikut:
     claimedBrand: null,
     requestedData: [],
     explanation: 'Analisa AI tidak tersedia saat ini.',
-    _model: 'Gemini AI'
+    _model: 'Cognitive AI'
   };
 }
 
@@ -340,7 +340,7 @@ Output HANYA JSON berikut:
     detectedSlang: [],
     contextAnalysis: '',
     explanation: 'Analisa AI tidak tersedia saat ini.',
-    _model: 'Gemini AI'
+    _model: 'Cognitive AI'
   };
 }
 
@@ -381,7 +381,7 @@ Output HANYA JSON berikut:
     confidence: 0,
     detectedElements: [],
     explanation: 'Analisa AI tidak tersedia saat ini.',
-    _model: 'Gemini AI'
+    _model: 'Cognitive AI'
   };
 }
 
@@ -510,7 +510,7 @@ Output HANYA JSON berikut (jangan tambahkan markdown atau teks lain):
         brandRecognition: { isKnownBrand: false, brandName: null, isOfficialDomain: false },
         indicators: [],
         explanation: 'Analisa AI tidak tersedia saat ini.',
-        _model: 'Gemini AI'
+        _model: 'Cognitive AI'
       } : null,
       socialEng: text ? {
         isSocialEngineering: false,
@@ -519,14 +519,14 @@ Output HANYA JSON berikut (jangan tambahkan markdown atau teks lain):
         claimedBrand: null,
         requestedData: [],
         explanation: 'Analisa AI tidak tersedia saat ini.',
-        _model: 'Gemini AI'
+        _model: 'Cognitive AI'
       } : null,
       judolSlang: text ? {
         isJudol: false,
         confidence: 0,
         detectedSlang: [],
         contextAnalysis: '',
-        _model: 'Gemini AI'
+        _model: 'Cognitive AI'
       } : null
     };
   }

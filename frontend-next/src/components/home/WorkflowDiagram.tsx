@@ -42,7 +42,7 @@ const ENGINES = [
   {
     id: 'gemini',
     icon: Bot,
-    label: 'Gemini AI',
+    label: 'Cognitive AI Engine',
     desc: 'Menganalisis manipulasi psikologis',
     color: 'from-emerald-500 to-teal-500',
     bg: 'bg-emerald-500/10 text-emerald-500',
@@ -85,7 +85,7 @@ export default function WorkflowDiagram({ isScanning = false }: { isScanning?: b
             clearInterval(intervalRef.current);
             intervalRef.current = null;
           }
-          setActiveIndex(ENGINES.length - 2); // Tetap tampilkan Gemini AI (langkah sebelum Verdict)
+          setActiveIndex(ENGINES.length - 2); // Tetap tampilkan Cognitive AI Engine (langkah sebelum Verdict)
         }
       }, 1800);
 
