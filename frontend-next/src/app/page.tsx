@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Header from '@/components/layout/Header';
-import AboutPresentation from '@/components/home/AboutPresentation';
 import HeroSection from '@/components/home/HeroSection';
 import SocialProof from '@/components/home/SocialProof';
 import VerdictCard from '@/components/home/VerdictCard';
@@ -113,8 +112,6 @@ export default function Home() {
       <Header />
 
       <main className="flex-1 flex flex-col">
-        <AboutPresentation />
-
         <div id="scanner-section" className="scroll-mt-16">
           <HeroSection onAnalyze={handleAnalyze} />
         </div>
