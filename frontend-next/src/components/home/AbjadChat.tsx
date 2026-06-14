@@ -1051,14 +1051,14 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
                                   >
                                     <Volume2 className="w-3 h-3" /> Putar ulang suara
                                   </button>
-                                )
-                                      }
-                                    }}
-                                    className="mt-2 flex items-center gap-1 text-[10px] text-primary/70 hover:text-primary cursor-pointer transition-colors"
-                                  >
-                                    <Volume2 className="w-3 h-3" /> Putar ulang suara
-                                  </button>
                                 )}
+                              </div>
+                            </motion.div>
+                          ))}
+
+                          {isLoading && (
+                            <div className="flex gap-2.5">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                                 <Bot className="w-4 h-4 text-primary" />
                               </div>
                               <div className="bg-muted/50 rounded-2xl rounded-tl-sm px-4 py-3">
