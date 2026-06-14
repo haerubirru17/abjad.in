@@ -36,7 +36,7 @@ export default function ThreatLabSandbox({
 }: ThreatLabSandboxProps) {
   if (!scanContext) return null;
 
-  const { verdict, category, explanation, flags = [] } = scanContext;
+  const { verdict, score, category, explanation, flags = [] } = scanContext;
 
   // ── Resolve case: topicOverride dari AI mengoverride logika default ──
   let activeCase: LabCase;
@@ -577,34 +577,69 @@ export default function ThreatLabSandbox({
   }
 
   // ── Case 10: SAFE ──
+  const isCaution = score !== undefined && score > 0;
+
   return (
     <div className="space-y-6 text-foreground">
       <div>
-        <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-          Diagnosa Selesai: Sistem Aman
+        <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${
+          isCaution 
+            ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20 animate-pulse' 
+            : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+        }`}>
+          {isCaution ? 'Diagnosa Selesai: Aman tapi Tetap Waspada' : 'Diagnosa Selesai: Sistem Aman'}
         </span>
-        <h2 className="text-xl font-black mt-2 text-foreground">🛡️ Pintu Gerbang Pemeriksaan Berlapis</h2>
+        <h2 className="text-xl font-black mt-2 text-foreground">
+          {isCaution ? '⚠️ Aman dengan Catatan (Caution)' : '🛡️ Pintu Gerbang Pemeriksaan Berlapis'}
+        </h2>
       </div>
       <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-3 shadow-sm">
-        <h3 className="font-bold text-xs text-emerald-500 flex items-center gap-2">💡 Analogi Sederhana: &quot;Sistem Keamanan Bandara&quot;</h3>
+        <h3 className={`font-bold text-xs flex items-center gap-2 ${isCaution ? 'text-amber-500' : 'text-emerald-500'}`}>
+          💡 Analogi Sederhana: {isCaution ? '"Pemeriksaan Tambahan Bandara"' : '"Sistem Keamanan Bandara"'}
+        </h3>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Link ini diibaratkan seperti seorang pelancong di bandara yang telah lolos dari pemeriksaan X-Ray berlapis, verifikasi paspor, dan detektor logam canggih. Tidak ditemukan ancaman apapun.
+          {isCaution 
+            ? 'Bagaikan barang bawaan pelancong di bandara yang lolos dari mesin pemindai utama (bebas dari ancaman aktif seperti virus atau phishing terkonfirmasi), namun petugas menemukan beberapa barang janggal (ekstensi tidak umum atau domain tidak dikenal). Pelancong tetap dipersilakan lewat, namun diberikan himbauan untuk waspada.'
+            : 'Link ini diibaratkan seperti seorang pelancong di bandara yang telah lolos dari pemeriksaan X-Ray berlapis, verifikasi paspor, dan detektor logam canggih. Tidak ditemukan ancaman apapun.'
+          }
         </p>
-        <AskAIButton question="Meskipun link ini aman, apa yang tetap harus aku waspadai saat browsing sehari-hari?" />
+        {isCaution && explanation && (
+          <div className="mt-3 p-3 rounded-xl bg-amber-500/5 border border-amber-500/15 text-xs text-muted-foreground leading-relaxed">
+            <span className="font-bold text-amber-500 block mb-1">⚠️ Karakteristik yang Dideteksi AI:</span>
+            {explanation}
+          </div>
+        )}
+        <AskAIButton 
+          question={isCaution 
+            ? `Jelaskan mengapa hasil scan saya berstatus Aman tapi Tetap Waspada (skor ${score}/100) dan apa maksud dari: "${explanation}"?` 
+            : 'Meskipun link ini aman, apa yang tetap harus aku waspadai saat browsing sehari-hari?'
+          }
+          label={isCaution ? 'Tanya AI tentang catatan ini →' : undefined}
+        />
       </div>
       <div className="p-4 rounded-2xl bg-muted/30 border border-border/30 space-y-3">
-        <h3 className="font-bold text-xs text-foreground">✅ Protokol Keamanan Abjad.in yang Telah Dilewati:</h3>
+        <h3 className="font-bold text-xs text-foreground">
+          {isCaution ? '📊 Hasil Protokol Pemeriksaan Abjad.in:' : '✅ Protokol Keamanan Abjad.in yang Telah Dilewati:'}
+        </h3>
         <div className="space-y-2.5">
-          {[
-            'Domain lolos dari verifikasi blacklist lokal (TrustPositif Kominfo & Database Keamanan).',
-            'Algoritma Machine Learning (ONNX) mengonfirmasi tidak adanya pola ejaan homograph mencurigakan.',
-            'Struktur sertifikasi SSL/HTTPS terverifikasi diterbitkan oleh lembaga resmi yang valid.',
-          ].map((item, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="text-emerald-500 font-bold">✓</span>
-              <span>{item}</span>
+          <div className="flex items-start gap-2 text-xs text-muted-foreground">
+            <span className="text-emerald-500 font-bold">✓</span>
+            <span>Domain lolos dari verifikasi blacklist lokal (TrustPositif Kominfo & Database Keamanan).</span>
+          </div>
+          <div className="flex items-start gap-2 text-xs text-muted-foreground">
+            <span className="text-emerald-500 font-bold">✓</span>
+            <span>Algoritma Machine Learning (ONNX) mengonfirmasi tidak adanya pola ejaan homograph mencurigakan.</span>
+          </div>
+          <div className="flex items-start gap-2 text-xs text-muted-foreground">
+            <span className="text-emerald-500 font-bold">✓</span>
+            <span>Struktur sertifikasi SSL/HTTPS terverifikasi diterbitkan oleh lembaga resmi yang valid.</span>
+          </div>
+          {isCaution && (
+            <div className="flex items-start gap-2 text-xs text-muted-foreground border-t border-border/20 pt-2.5">
+              <span className="text-amber-500 font-bold">⚠️</span>
+              <span>Analisis Kognitif mendeteksi anomali ringan (skor {score}/100) pada profil domain.</span>
             </div>
-          ))}
+          )}
         </div>
       </div>
       <div className="p-4 rounded-2xl bg-card border border-border/50 space-y-2 shadow-sm">

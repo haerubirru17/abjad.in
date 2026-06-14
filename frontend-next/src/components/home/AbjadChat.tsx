@@ -4,7 +4,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Mic, MicOff, Send, Bot, User, Volume2,
-  VolumeX, MessageSquare, Loader2, Maximize2, Minimize2
+  VolumeX, MessageSquare, Loader2, Maximize2, Minimize2,
+  History, Plus, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ThreatLabSandbox from './ThreatLabSandbox';
@@ -16,6 +17,14 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   text: string;
   audioUrl?: string | null;
+}
+
+interface ChatSession {
+  id: string;
+  timestamp: number;
+  title: string;
+  messages: ChatMessage[];
+  scanContext?: ScanContext | null;
 }
 
 interface ScanContext {
@@ -93,6 +102,9 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
   const [activeLabTopic, setActiveLabTopic] = useState<string | null>(null); // Remote control panel kanan
   const [isLabUpdating, setIsLabUpdating] = useState(false); // Animasi update panel kanan
   const [isMaximized, setIsMaximized] = useState(true); // Default: full screen
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   // ── Refs ───────────────────────────────────────────────────
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -149,28 +161,192 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, liveTranscript]);
 
-  // ── Greeting saat pertama buka — berisi Scan Summary kontekstual ────────────────
-  useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      let greeting: string;
-      if (scanContext?.verdict) {
-        const verdictEmoji = scanContext.verdict === 'MALICIOUS' ? '🚨' : scanContext.verdict === 'SUSPICIOUS' ? '⚠️' : '✅';
-        const verdictLabel = scanContext.verdict === 'MALICIOUS' ? 'BERBAHAYA' : scanContext.verdict === 'SUSPICIOUS' ? 'MENCURIGAKAN' : 'AMAN';
-        const scoreText = scanContext.score !== undefined ? ` (Skor Ancaman: ${scanContext.score}/100)` : '';
-        const categoryText = scanContext.category ? `\nKategori Ancaman: ${scanContext.category}` : '';
-        const snippetText = scanContext.explanation
-          ? `\n\n📋 Ringkasan: ${scanContext.explanation.slice(0, 220)}${scanContext.explanation.length > 220 ? '...' : ''}`
-          : '';
-        const panelHint = scanContext.verdict !== 'SAFE'
-          ? '\n\n👉 Panel kanan sudah menampilkan analogi visual & penjelasan untuk kasus ini. Klik tombol "Tanya AI tentang ini" di sana, atau langsung tanya di bawah!'
-          : '\n\n👉 Meskipun link ini aman, kamu bisa tanya apa saja seputar keamanan digital — aku siap membantu!';
-        greeting = `${verdictEmoji} Hai! Aku sudah menganalisis hasil scan kamu.\n\nStatus: ${verdictLabel}${scoreText}${categoryText}${snippetText}${panelHint}`;
-      } else {
-        greeting = `Halo! Aku AbjadIn, asisten keamanan digitalmu. Kamu bisa tanya apa saja seputar keamanan online. Atau scan dulu link yang ingin kamu periksa ya!`;
-      }
-      setMessages([{ role: 'assistant', text: greeting }]);
+  // ── Helper: Cek kesamaan context scan ──────────────────────
+  const isSameContext = useCallback((a: ScanContext | null | undefined, b: ScanContext | null | undefined) => {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    return a.verdict === b.verdict && a.score === b.score && a.explanation === b.explanation;
+  }, []);
+
+  // ── Fungsi Sesi Baru ──────────────────────────────────────
+  const startNewSession = useCallback((context: ScanContext | null = null) => {
+    const newId = `session_${Date.now()}`;
+    let title = 'Tanya Jawab Umum';
+    if (context?.verdict) {
+      const label = context.verdict === 'MALICIOUS' ? 'Berbahaya' : context.verdict === 'SUSPICIOUS' ? 'Mencurigakan' : 'Aman';
+      title = `Scan: ${label} (${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })})`;
     }
-  }, [isOpen, scanContext?.verdict]);
+    
+    // greeting message
+    let greeting: string;
+    if (context?.verdict) {
+      const verdictEmoji = context.verdict === 'MALICIOUS' ? '🚨' : context.verdict === 'SUSPICIOUS' ? '⚠️' : '✅';
+      const verdictLabel = context.verdict === 'MALICIOUS' ? 'BERBAHAYA' : context.verdict === 'SUSPICIOUS' ? 'MENCURIGAKAN' : 'AMAN';
+      const scoreText = context.score !== undefined ? ` (Skor Ancaman: ${context.score}/100)` : '';
+      // Kategori Ancaman hanya dimunculkan jika verdict bukan SAFE
+      const categoryText = context.category && context.verdict !== 'SAFE'
+        ? `\nKategori Ancaman: ${context.category}`
+        : '';
+      const snippetText = context.explanation
+        ? `\n\n📋 Ringkasan: ${context.explanation.slice(0, 220)}${context.explanation.length > 220 ? '...' : ''}`
+        : '';
+      const panelHint = context.verdict !== 'SAFE'
+        ? '\n\n👉 Panel kanan sudah menampilkan analogi visual & penjelasan untuk kasus ini. Klik tombol "Tanya AI tentang ini" di sana, atau langsung tanya di bawah!'
+        : '\n\n👉 Meskipun link ini aman, kamu bisa tanya apa saja seputar keamanan digital — aku siap membantu!';
+      greeting = `${verdictEmoji} Hai! Aku sudah menganalisis hasil scan kamu.\n\nStatus: ${verdictLabel}${scoreText}${categoryText}${snippetText}${panelHint}`;
+    } else {
+      greeting = `Halo! Aku AbjadIn, asisten keamanan digitalmu. Kamu bisa tanya apa saja seputar keamanan online. Atau scan dulu link yang ingin kamu periksa ya!`;
+    }
+
+    const newSession: ChatSession = {
+      id: newId,
+      timestamp: Date.now(),
+      title,
+      messages: [{ role: 'assistant', text: greeting }],
+      scanContext: context
+    };
+
+    setSessions(prev => {
+      const updated = [newSession, ...prev];
+      localStorage.setItem('abjadin_chat_sessions', JSON.stringify(updated));
+      return updated;
+    });
+    setCurrentSessionId(newId);
+    setMessages(newSession.messages);
+
+    // Sync visual lab
+    if (context?.verdict) {
+      const detected = detectTopicFromText(greeting);
+      if (detected) {
+        setActiveLabTopic(detected);
+      } else {
+        if (context.category?.toLowerCase().includes('phishing')) setActiveLabTopic('PHISHING');
+        else if (context.category?.toLowerCase().includes('malware')) setActiveLabTopic('MALWARE');
+        else setActiveLabTopic(null);
+      }
+    } else {
+      setActiveLabTopic(null);
+    }
+  }, []);
+
+  // ── Muat Sesi ─────────────────────────────────────────────
+  const loadSession = useCallback((sessionId: string) => {
+    const session = sessions.find(s => s.id === sessionId);
+    if (session) {
+      setCurrentSessionId(sessionId);
+      setMessages(session.messages);
+      if (session.scanContext) {
+        const detected = detectTopicFromText(session.messages[session.messages.length - 1]?.text || '');
+        setActiveLabTopic(detected || null);
+      } else {
+        setActiveLabTopic(null);
+      }
+      setShowHistory(false);
+    }
+  }, [sessions]);
+
+  // ── Hapus Sesi ────────────────────────────────────────────
+  const deleteSession = useCallback((sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSessions(prev => {
+      const updated = prev.filter(s => s.id !== sessionId);
+      localStorage.setItem('abjadin_chat_sessions', JSON.stringify(updated));
+      
+      if (currentSessionId === sessionId) {
+        if (updated.length > 0) {
+          setTimeout(() => {
+            const first = updated[0];
+            setCurrentSessionId(first.id);
+            setMessages(first.messages);
+            if (first.scanContext) {
+              const detected = detectTopicFromText(first.messages[first.messages.length - 1]?.text || '');
+              setActiveLabTopic(detected || null);
+            } else {
+              setActiveLabTopic(null);
+            }
+          }, 50);
+        } else {
+          setTimeout(() => startNewSession(null), 50);
+        }
+      }
+      return updated;
+    });
+  }, [currentSessionId, startNewSession]);
+
+  // ── Muat Sesi dari localStorage saat Mount ──────────────────
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('abjadin_chat_sessions');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored) as ChatSession[];
+          setSessions(parsed);
+        } catch (e) {
+          console.error('Failed to parse chat sessions', e);
+        }
+      }
+    }
+  }, []);
+
+  // ── Auto-save Sesi saat state messages berubah ─────────────
+  useEffect(() => {
+    if (currentSessionId && messages.length > 0) {
+      setSessions(prev => {
+        const sessionIndex = prev.findIndex(s => s.id === currentSessionId);
+        if (sessionIndex !== -1) {
+          if (JSON.stringify(prev[sessionIndex].messages) !== JSON.stringify(messages)) {
+            const updated = [...prev];
+            updated[sessionIndex] = { ...updated[sessionIndex], messages };
+            localStorage.setItem('abjadin_chat_sessions', JSON.stringify(updated));
+            return updated;
+          }
+        }
+        return prev;
+      });
+    }
+  }, [messages, currentSessionId]);
+
+  // ── Kelola Sesi saat Modal Dibuka atau Scan Baru ──────────
+  useEffect(() => {
+    if (isOpen) {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('abjadin_chat_sessions') : null;
+      let currentSessionsList = sessions;
+      if (stored && sessions.length === 0) {
+        try {
+          currentSessionsList = JSON.parse(stored) as ChatSession[];
+          setSessions(currentSessionsList);
+        } catch (e) {
+          /* ignore */
+        }
+      }
+
+      if (currentSessionsList.length > 0) {
+        const currentSession = currentSessionsList.find(s => s.id === currentSessionId);
+        if (isSameContext(currentSession?.scanContext, scanContext)) {
+          if (currentSession) {
+            setMessages(currentSession.messages);
+            return;
+          }
+        }
+        
+        if (scanContext?.verdict) {
+          startNewSession(scanContext);
+        } else {
+          const mostRecent = currentSessionsList[0];
+          setCurrentSessionId(mostRecent.id);
+          setMessages(mostRecent.messages);
+          if (mostRecent.scanContext) {
+            const detected = detectTopicFromText(mostRecent.messages[mostRecent.messages.length - 1]?.text || '');
+            setActiveLabTopic(detected || null);
+          } else {
+            setActiveLabTopic(null);
+          }
+        }
+      } else {
+        startNewSession(scanContext);
+      }
+    }
+  }, [isOpen, scanContext]);
 
   // ── Cleanup saat close ────────────────────────────────────
   useEffect(() => {
@@ -623,6 +799,16 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* History toggle */}
+                  <button
+                    onClick={() => setShowHistory(!showHistory)}
+                    className={`p-2 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer ${
+                      showHistory ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    title="Riwayat Percakapan"
+                  >
+                    <History className="w-4 h-4" />
+                  </button>
                   {/* Minimize / Maximize toggle */}
                   <button
                     onClick={() => setIsMaximized(!isMaximized)}
@@ -668,9 +854,90 @@ export default function AbjadChat({ scanContext, isOpen, onClose }: AbjadChatPro
               <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
                 
                 {/* ── LEFT PANEL: Chatbot Engine (Klien Konsultasi) ── */}
-                <div className={`w-full md:w-[42%] flex flex-col h-full border-r border-border/50 bg-card ${
+                <div className={`relative w-full md:w-[42%] flex flex-col h-full border-r border-border/50 bg-card ${
                   mobileActiveTab !== 'chat' ? 'hidden md:flex' : 'flex'
                 }`}>
+                   {/* History Overlay */}
+                   <AnimatePresence>
+                     {showHistory && (
+                       <motion.div
+                         initial={{ x: '-100%' }}
+                         animate={{ x: 0 }}
+                         exit={{ x: '-100%' }}
+                         transition={{ type: 'tween', duration: 0.25 }}
+                         className="absolute inset-0 bg-background/95 backdrop-blur-sm z-30 flex flex-col border-r border-border/50"
+                       >
+                         <div className="flex items-center justify-between p-4 border-b border-border/50 bg-muted/20">
+                           <h4 className="font-bold text-xs text-foreground flex items-center gap-2">
+                             <History className="w-4 h-4 text-primary" /> Riwayat Chat
+                           </h4>
+                           <button
+                             type="button"
+                             onClick={() => setShowHistory(false)}
+                             className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                           >
+                             <X className="w-4 h-4" />
+                           </button>
+                         </div>
+
+                         {/* Action Button: Start New Chat */}
+                         <div className="p-3 border-b border-border/50 bg-muted/10">
+                           <button
+                             type="button"
+                             onClick={() => {
+                               startNewSession(null);
+                               setShowHistory(false);
+                             }}
+                             className="w-full py-2 px-4 rounded-xl bg-primary text-primary-foreground font-bold text-xs flex items-center justify-center gap-2 hover:bg-primary/90 transition-all cursor-pointer shadow-sm"
+                           >
+                             <Plus className="w-4 h-4" /> Mulai Chat Baru
+                           </button>
+                         </div>
+
+                         {/* History List */}
+                         <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                           {sessions.length === 0 ? (
+                             <p className="text-center text-xs text-muted-foreground py-8">Belum ada riwayat chat.</p>
+                           ) : (
+                             sessions.map(s => {
+                               const isActive = s.id === currentSessionId;
+                               const dateStr = new Date(s.timestamp).toLocaleDateString('id-ID', {
+                                 day: 'numeric',
+                                 month: 'short',
+                                 hour: '2-digit',
+                                 minute: '2-digit'
+                               });
+
+                               return (
+                                 <div
+                                   key={s.id}
+                                   onClick={() => loadSession(s.id)}
+                                   className={`group w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                                     isActive
+                                       ? 'bg-primary/10 border-primary/30 text-primary font-semibold'
+                                       : 'bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+                                   }`}
+                                 >
+                                   <div className="flex flex-col min-w-0">
+                                     <span className="text-xs truncate font-bold">{s.title}</span>
+                                     <span className="text-[9px] opacity-70 mt-0.5">{dateStr}</span>
+                                   </div>
+                                   <button
+                                     type="button"
+                                     onClick={(e) => deleteSession(s.id, e)}
+                                     className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+                                     title="Hapus riwayat"
+                                   >
+                                     <Trash2 className="w-3.5 h-3.5" />
+                                   </button>
+                                 </div>
+                               );
+                             })
+                           )}
+                         </div>
+                       </motion.div>
+                     )}
+                   </AnimatePresence>
                   {/* Body Chat */}
                   <div className="flex-1 overflow-y-auto p-5 space-y-4">
                     <AnimatePresence mode="wait">
