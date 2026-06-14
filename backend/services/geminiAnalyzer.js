@@ -11,6 +11,7 @@
  */
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { Groq } = require('groq-sdk');
 
 // Dukung satu key (GEMINI_API_KEY) atau multiple keys dipisah koma (GEMINI_API_KEYS)
 const rawKeys = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
@@ -23,8 +24,22 @@ const genAIInstances = apiKeys.map(key => ({
 }));
 
 if (genAIInstances.length === 0) {
-  console.warn('[GeminiAnalyzer] WARNING: Tidak ada API Key yang dikonfigurasi!');
+  console.warn('[GeminiAnalyzer] WARNING: Tidak ada Gemini API Key yang dikonfigurasi!');
   genAIInstances.push({ keyPrefix: 'dummy', client: new GoogleGenerativeAI('dummy') });
+}
+
+// Dukung satu key (GROQ_API_KEY) atau multiple keys dipisah koma (GROQ_API_KEYS)
+const rawGroqKeys = process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '';
+const groqApiKeys = rawGroqKeys.split(',').map(k => k.trim()).filter(k => k.length > 0);
+
+// Buat instance Groq untuk setiap key (untuk rotasi)
+const groqInstances = groqApiKeys.map(key => ({
+  keyPrefix: key.substring(0, 8) + '***',
+  client: new Groq({ apiKey: key })
+}));
+
+if (groqInstances.length === 0) {
+  console.warn('[GeminiAnalyzer] WARNING: Tidak ada Groq API Key yang dikonfigurasi!');
 }
 
 // ============================================================
@@ -36,12 +51,21 @@ const MODEL_ROTATION = [
   'gemini-2.5-flash-lite',   // Cadangan 1: Ringan & cepat
   'gemini-2.0-flash',        // Cadangan 2: Lightweight fallback
   'gemini-2.0-flash-lite'    // Cadangan 3: Paling ringan
-  // gemini-2.5-pro dikeluarkan — terlalu lambat untuk realtime scanning
+];
+
+const GROQ_MODEL_ROTATION = [
+  'llama-3.3-70b-versatile', // Primary Groq: Cepat & pintar
+  'mixtral-8x7b-32768'       // Fallback Groq
+];
+
+const GROQ_VISION_MODEL_ROTATION = [
+  'llama-3.2-11b-vision-preview', // Vision Groq
+  'llama-3.2-90b-vision-preview'
 ];
 
 // Track cooldown per kombinasi Key + Model
-// format key string: "keyPrefix_modelName"
 const resourceCooldowns = {};
+const groqResourceCooldowns = {};
 
 /**
  * Mendapatkan resource (API Key + Model) yang tersedia
@@ -79,6 +103,48 @@ function markResourceRateLimited(resourceId, isQuota = false) {
   const cooldownTime = isQuota ? 86400000 : 60000; // 24 jam jika kuota harian habis, 60 detik jika limit per menit
   resourceCooldowns[resourceId] = Date.now() + cooldownTime;
   console.warn(`[GeminiAnalyzer] Resource ${resourceId} ${isQuota ? 'QUOTA EXHAUSTED (24h cooldown)' : 'RATE-LIMITED (60s cooldown)'}`);
+}
+
+/**
+ * Mendapatkan resource Groq (API Key + Model) yang tersedia
+ * @param {boolean} isVision 
+ * @returns {Object} { instance, modelName, resourceId }
+ */
+function getAvailableGroqResource(isVision = false) {
+  const now = Date.now();
+  const models = isVision ? GROQ_VISION_MODEL_ROTATION : GROQ_MODEL_ROTATION;
+  
+  for (const model of models) {
+    for (const instance of groqInstances) {
+      const resourceId = `${instance.keyPrefix}_${model}`;
+      const cooldownUntil = groqResourceCooldowns[resourceId] || 0;
+      if (now > cooldownUntil) {
+        return { instance, modelName: model, resourceId };
+      }
+    }
+  }
+  
+  // Semua resource Groq kena cooldown — paksa pakai yang pertama jika ada
+  if (groqInstances.length > 0) {
+    const defaultModel = models[0];
+    return {
+      instance: groqInstances[0],
+      modelName: defaultModel,
+      resourceId: `${groqInstances[0].keyPrefix}_${defaultModel}`
+    };
+  }
+  return null;
+}
+
+/**
+ * Tandai resource Groq spesifik sebagai rate-limited/quota exhausted
+ * @param {string} resourceId 
+ * @param {boolean} isQuota 
+ */
+function markGroqResourceRateLimited(resourceId, isQuota = false) {
+  const cooldownTime = isQuota ? 86400000 : 60000; // 24 jam jika kuota habis, 60s jika rate limit
+  groqResourceCooldowns[resourceId] = Date.now() + cooldownTime;
+  console.warn(`[GroqAnalyzer] Resource ${resourceId} ${isQuota ? 'QUOTA EXHAUSTED (24h cooldown)' : 'RATE-LIMITED (60s cooldown)'}`);
 }
 
 // ============================================================
@@ -150,6 +216,25 @@ function sanitizeForGemini(content) {
 // CORE: callGemini — Pemanggil AI dengan auto-rotate
 // ============================================================
 async function callGemini(userPrompt, maxRetries = 2, imagePart = null) {
+  // 1. Coba panggil Gemini terlebih dahulu
+  let result = await callGeminiCore(userPrompt, maxRetries, imagePart);
+  if (result) {
+    return result;
+  }
+
+  // 2. Jika Gemini gagal / exhausted, lakukan fallback ke Groq
+  if (groqInstances.length > 0) {
+    console.warn('[AI Analyzer] Gemini API exhausted/failed. Beralih ke fallback Groq...');
+    result = await callGroqCore(userPrompt, maxRetries, imagePart);
+    if (result) {
+      return result;
+    }
+  }
+
+  return null;
+}
+
+async function callGeminiCore(userPrompt, maxRetries = 2, imagePart = null) {
   let lastError = null;
   const triedResources = new Set();
   
@@ -225,7 +310,103 @@ async function callGemini(userPrompt, maxRetries = 2, imagePart = null) {
 
   // Semua resource dicoba dan gagal
   if (lastError?.message) {
-    console.warn(`[GeminiAnalyzer] Semua AI resources gagal (keys+models):`, lastError.message);
+    console.warn(`[GeminiAnalyzer] Semua Gemini resources gagal (keys+models):`, lastError.message);
+  }
+  return null;
+}
+
+async function callGroqCore(userPrompt, maxRetries = 2, imagePart = null) {
+  let lastError = null;
+  const triedResources = new Set();
+  const isVision = !!imagePart;
+  const maxAttempts = groqInstances.length * (isVision ? GROQ_VISION_MODEL_ROTATION.length : GROQ_MODEL_ROTATION.length);
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const resource = getAvailableGroqResource(isVision);
+    if (!resource) break;
+
+    const { instance, modelName, resourceId } = resource;
+    if (triedResources.has(resourceId)) break;
+    triedResources.add(resourceId);
+
+    try {
+      let messages = [];
+      if (isVision) {
+        // Format gambar untuk Groq Vision API
+        const dataUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
+        messages = [
+          { role: 'system', content: SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userPrompt },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: dataUrl
+                }
+              }
+            ]
+          }
+        ];
+      } else {
+        messages = [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt }
+        ];
+      }
+
+      // Strict Timeout: 5 detik maksimal per request Groq
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Groq API Timeout (5s)')), 5000)
+      );
+
+      const requestPromise = instance.client.chat.completions.create({
+        messages,
+        model: modelName,
+        temperature: 0.1,
+        max_tokens: 2048,
+        response_format: isVision ? undefined : { type: 'json_object' } // Vision model tidak selalu support strict json mode
+      });
+
+      const response = await Promise.race([
+        requestPromise,
+        timeoutPromise
+      ]);
+
+      const responseText = response.choices[0].message.content;
+      const cleanJson = responseText
+        .replace(/```json\n?/g, '')
+        .replace(/```\n?/g, '')
+        .trim();
+
+      const parsed = JSON.parse(cleanJson);
+      parsed._model = `${modelName} (via Groq)`;
+      return parsed;
+
+    } catch (error) {
+      lastError = error;
+
+      // Rate limited / quota exhausted
+      if (error.status === 429 || error.message?.includes('429') || error.message?.includes('quota') || error.message?.includes('rate limit')) {
+        const isQuota = error.message?.toLowerCase().includes('quota') || error.message?.toLowerCase().includes('limit');
+        markGroqResourceRateLimited(resourceId, isQuota);
+        continue;
+      }
+
+      // Timeout
+      if (error.message?.includes('Timeout')) {
+        markGroqResourceRateLimited(resourceId, false);
+        continue;
+      }
+
+      // JSON parsing or other error
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
+  if (lastError?.message) {
+    console.warn(`[GroqAnalyzer] Semua Groq resources gagal (keys+models):`, lastError.message);
   }
   return null;
 }
