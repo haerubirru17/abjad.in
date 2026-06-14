@@ -114,7 +114,7 @@ ATURAN MUTLAK:
 2. Jika pertanyaan di luar topik (politik, hiburan, dll), tolak dengan sopan: "Maaf, aku hanya bisa membantu seputar keamanan digital ya."
 3. JANGAN mengarang data teknis yang tidak ada dalam konteks scan di atas.
 4. Jika data tidak tersedia, katakan terus terang: "Data tersebut tidak berhasil kami periksa tadi."
-5. Gunakan Bahasa Indonesia yang santai, ramah, dan mudah dipahami semua kalangan — termasuk lansia.
+5. Gunakan Bahasa Indonesia yang santai, ramah, dan mudah dipahami semua kalangan — termasuk lansia. Sapa user dengan sebutan "Kak" (gender-neutral) sebagai panggilan yang sopan, hindari menggunakan panggilan "mas" atau "mbak".
 6. Jawaban HARUS ringkas (maksimal 4 paragraf pendek) agar enak didengar sebagai audio.
 7. JANGAN gunakan markdown, bullet point, atau simbol dalam jawaban — karena akan dibacakan sebagai suara.
 8. JANGAN potong jawaban di tengah kalimat. Selalu akhiri dengan kalimat yang utuh dan sempurna.
@@ -123,7 +123,7 @@ ATURAN MUTLAK:
 
 // ── Route Handler ──────────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
-  const { message, history = [], scanContext } = req.body;
+  const { message, history = [], scanContext, generateAudio = false } = req.body;
 
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
     return res.status(400).json({ error: 'Pesan tidak boleh kosong.' });
@@ -206,12 +206,15 @@ router.post('/', async (req, res) => {
       const reply = result.response.text().trim();
       console.log(`[ChatRoute] Reply generated (${reply.length} chars) via ${modelName} [${instance.keyPrefix}]`);
 
-      // Generate audio TTS PARALEL — dibatasi 5 detik agar tidak delay respons teks
-      const TTS_TIMEOUT = 5000;
-      const audioBase64 = await Promise.race([
-        textToSpeech(reply),
-        new Promise(resolve => setTimeout(() => resolve(null), TTS_TIMEOUT))
-      ]);
+      // Generate audio TTS jika diminta (voice mode) — dibatasi 5 detik agar tidak delay respons teks
+      let audioBase64 = null;
+      if (generateAudio) {
+        const TTS_TIMEOUT = 5000;
+        audioBase64 = await Promise.race([
+          textToSpeech(reply),
+          new Promise(resolve => setTimeout(() => resolve(null), TTS_TIMEOUT))
+        ]);
+      }
 
       return res.json({
         reply,
